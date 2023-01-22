@@ -1,0 +1,365 @@
+Script started on Sun 22 Jan 2023 06:47:15 PM UTC
+^[]0;root@lvm:/homework^G^[[?1034h[root@lvm homework]# pvcreate /dev/sdb^M
+  Physical volume "/dev/sdb" successfully created.^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# vgcreate vg_root /dev/sdb^M
+  Volume group "vg_root" successfully created^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# lvcreate -n lv_root -l +100%FREE /dev/vg_root^M
+  Logical volume "lv_root" created.^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# pvs^M
+  PV         VG         Fmt  Attr PSize   PFree^M
+  /dev/sda3  VolGroup00 lvm2 a--  <38.97g    0 ^M
+  /dev/sdb   vg_root    lvm2 a--  <10.00g    0 ^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# vgs^M
+  VG         #PV #LV #SN Attr   VSize   VFree^M
+  VolGroup00   1   2   0 wz--n- <38.97g    0 ^M
+  vg_root      1   1   0 wz--n- <10.00g    0 ^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# lvs^M
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert^M
+  LogVol00 VolGroup00 -wi-ao---- <37.47g                                                    ^M
+  LogVol01 VolGroup00 -wi-ao----   1.50g                                                    ^M
+  lv_root  vg_root    -wi-a----- <10.00g                                                    ^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# mkfs.xfs /dev/vg_root/lv_root^M
+meta-data=/dev/vg_root/lv_root   isize=512    agcount=4, agsize=655104 blks^M
+         =                       sectsz=512   attr=2, projid32bit=1^M
+         =                       crc=1        finobt=0, sparse=0^M
+data     =                       bsize=4096   blocks=2620416, imaxpct=25^M
+         =                       sunit=0      swidth=0 blks^M
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1^M
+log      =internal log           bsize=4096   blocks=2560, version=2^M
+         =                       sectsz=512   sunit=0 blks, lazy-count=1^M
+realtime =none                   extsz=4096   blocks=0, rtextents=0^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# mount /dev/vg_root/lv_root /mnt^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# findmnt^M
+TARGET                                SOURCE     FSTYPE     OPTIONS^M
+/                                     /dev/mapper/VolGroup00-LogVol00^M
+                                                 xfs        rw,relatime,seclabel,attr2,inode64,noquota^M
+├─/sys                                sysfs      sysfs      rw,nosuid,nodev,noexec,relatime,seclabel^M
+│ ├─/sys/kernel/security              securityfs securityfs rw,nosuid,nodev,noexec,relatime^M
+│ ├─/sys/fs/cgroup                    tmpfs      tmpfs      ro,nosuid,nodev,noexec,seclabel,mode=755^M
+│ │ ├─/sys/fs/cgroup/systemd          cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,xattr,release_agent^M
+│ │ ├─/sys/fs/cgroup/cpu,cpuacct      cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,cpuacct,cpu^M
+│ │ ├─/sys/fs/cgroup/blkio            cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,blkio^M
+│ │ ├─/sys/fs/cgroup/hugetlb          cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,hugetlb^M
+│ │ ├─/sys/fs/cgroup/perf_event       cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,perf_event^M
+│ │ ├─/sys/fs/cgroup/memory           cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,memory^M
+│ │ ├─/sys/fs/cgroup/net_cls,net_prio cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,net_prio,net_cls^M
+│ │ ├─/sys/fs/cgroup/cpuset           cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,cpuset^M
+│ │ ├─/sys/fs/cgroup/pids             cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,pids^M
+│ │ ├─/sys/fs/cgroup/freezer          cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,freezer^M
+│ │ └─/sys/fs/cgroup/devices          cgroup     cgroup     rw,nosuid,nodev,noexec,relatime,seclabel,devices^M
+│ ├─/sys/fs/pstore                    pstore     pstore     rw,nosuid,nodev,noexec,relatime^M
+│ ├─/sys/fs/selinux                   selinuxfs  selinuxfs  rw,relatime^M
+│ ├─/sys/kernel/debug                 debugfs    debugfs    rw,relatime^M
+│ └─/sys/kernel/config                configfs   configfs   rw,relatime^M
+├─/proc                               proc       proc       rw,nosuid,nodev,noexec,relatime^M
+│ └─/proc/sys/fs/binfmt_misc          systemd-1  autofs     rw,relatime,fd=35,pgrp=1,timeout=0,minproto=5,maxproto=5,dir^M
+^M
+├─/dev                                devtmpfs   devtmpfs   rw,nosuid,seclabel,size=110948k,nr_inodes=27737,mode=755^M
+│ ├─/dev/shm                          tmpfs      tmpfs      rw,nosuid,nodev,seclabel^M
+│ ├─/dev/pts                          devpts     devpts     rw,nosuid,noexec,relatime,seclabel,gid=5,mode=620,ptmxmode=0^M
+│ ├─/dev/hugepages                    hugetlbfs  hugetlbfs  rw,relatime,seclabel^M
+│ └─/dev/mqueue                       mqueue     mqueue     rw,relatime,seclabel^M
+├─/run                                tmpfs      tmpfs      rw,nosuid,nodev,seclabel,mode=755^M
+│ └─/run/user/1000                    tmpfs      tmpfs      rw,nosuid,nodev,relatime,seclabel,size=24140k,mode=700,uid=1^M
+├─/var/lib/nfs/rpc_pipefs             sunrpc     rpc_pipefs rw,relatime^M
+├─/boot                               /dev/sda2  xfs        rw,relatime,seclabel,attr2,inode64,noquota^M
+└─/mnt                                /dev/mapper/vg_root-lv_root^M
+                                                 xfs        rw,relatime,seclabel,attr2,inode64,noquota^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^H^[[K^G^G^G^G^G^G^Glsblk^M
+NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT^M
+sda                       8:0    0   40G  0 disk ^M
+├─sda1                    8:1    0    1M  0 part ^M
+├─sda2                    8:2    0    1G  0 part /boot^M
+└─sda3                    8:3    0   39G  0 part ^M
+  ├─VolGroup00-LogVol00 253:0    0 37.5G  0 lvm  /^M
+  └─VolGroup00-LogVol01 253:1    0  1.5G  0 lvm  [SWAP]^M
+sdb                       8:16   0   10G  0 disk ^M
+└─vg_root-lv_root       253:2    0   10G  0 lvm  /mnt^M
+sdc                       8:32   0    2G  0 disk ^M
+sdd                       8:48   0    1G  0 disk ^M
+sde                       8:64   0    1G  0 disk ^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt^M
+xfsrestore: using file dump (drive_simple) strategy^M
+xfsrestore: version 3.1.7 (dump format 3.0)^M
+xfsdump: using file dump (drive_simple) strategy^M
+xfsdump: version 3.1.7 (dump format 3.0)^M
+xfsdump: level 0 dump of lvm:/^M
+xfsdump: dump date: Sun Jan 22 18:50:10 2023^M
+xfsdump: session id: 7b96f6f1-4986-41f3-a1b8-2b14d3a5c511^M
+xfsdump: session label: ""^M
+xfsrestore: searching media for dump^M
+xfsdump: ino map phase 1: constructing initial dump list^M
+xfsdump: ino map phase 2: skipping (no pruning necessary)^M
+xfsdump: ino map phase 3: skipping (only one dump stream)^M
+xfsdump: ino map construction complete^M
+xfsdump: estimated dump size: 850012992 bytes^M
+xfsdump: creating dump session media file 0 (media 0, file 0)^M
+xfsdump: dumping ino map^M
+xfsdump: dumping directories^M
+xfsrestore: examining media file 0^M
+xfsrestore: dump description: ^M
+xfsrestore: hostname: lvm^M
+xfsrestore: mount point: /^M
+xfsrestore: volume: /dev/mapper/VolGroup00-LogVol00^M
+xfsrestore: session time: Sun Jan 22 18:50:10 2023^M
+xfsrestore: level: 0^M
+xfsrestore: session label: ""^M
+xfsrestore: media label: ""^M
+xfsrestore: file system id: b60e9498-0baa-4d9f-90aa-069048217fee^M
+xfsrestore: session id: 7b96f6f1-4986-41f3-a1b8-2b14d3a5c511^M
+xfsrestore: media id: 757f6d8d-b30b-4823-890b-dcb42bddaf9a^M
+xfsrestore: searching media for directory dump^M
+xfsrestore: reading directories^M
+xfsdump: dumping non-directory files^M
+xfsrestore: 2739 directories and 23757 entries processed^M
+xfsrestore: dScript started on Sun 22 Jan 2023 07:10:57 PM UTC
+^[]0;root@lvm:/homework^G^[[?1034h[root@lvm homework]# for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# chroot /mnt/
+
+# ПЕРЕЗАГРУЗКА в файле /boot/grub2/grub.cfg заменён rd.lvm.lv=VolGroup00/LogVol00 на rd.lvm.lv=vg_root/lv_root (вывод cat /boot/grub2/grub.cfg не прикладываю)
+
+Script started on Sun 22 Jan 2023 07:34:53 PM UTC
+^[]0;root@lvm:/homework^G^[[?1034h[root@lvm homework]# lsblk^M
+NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT^M
+sda                       8:0    0   40G  0 disk ^M
+├─sda1                    8:1    0    1M  0 part ^M
+├─sda2                    8:2    0    1G  0 part /boot^M
+└─sda3                    8:3    0   39G  0 part ^M
+  ├─VolGroup00-LogVol01 253:1    0  1.5G  0 lvm  [SWAP]^M
+  └─VolGroup00-LogVol00 253:2    0 37.5G  0 lvm  ^M
+sdb                       8:16   0   10G  0 disk ^M
+└─vg_root-lv_root       253:0    0   10G  0 lvm  /^M
+sdc                       8:32   0    2G  0 disk ^M
+sdd                       8:48   0    1G  0 disk ^M
+sde                       8:64   0    1G  0 disk ^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# lvremove /dev/VolGroup00/LogVol00^M
+Do you really want to remove active logical volume VolGroup00/LogVol00? [y/n]: y^M
+  Logical volume "LogVol00" successfully removed^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# lvcreate -n VolGroup00/LogVol00 -L 8G /dev/VolGroup00^H^M
+WARNING: xfs signature detected on /dev/VolGroup00/LogVol00 at offset 0. Wipe it? [y/n]: y^M
+  Wiping xfs signature on /dev/VolGroup00/LogVol00.^M
+  Logical volume "LogVol00" created.^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# mkfs.xfs /dev/VolGroup00/LogVol00^M
+meta-data=/dev/VolGroup00/LogVol00 isize=512    agcount=4, agsize=524288 blks^M
+         =                       sectsz=512   attr=2, projid32bit=1^M
+         =                       crc=1        finobt=0, sparse=0^M
+data     =                       bsize=4096   blocks=2097152, imaxpct=25^M
+         =                       sunit=0      swidth=0 blks^M
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1^M
+log      =internal log           bsize=4096   blocks=2560, version=2^M
+         =                       sectsz=512   sunit=0 blks, lazy-count=1^M
+realtime =none                   extsz=4096   blocks=0, rtextents=0^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# mount /dev/VolGroup00/LogVol00 /mnt^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# xfsdump -J - /dev/vg_root/lv_root | xfsrestore -J - /mnt^M
+xfsdump: using file dump (drive_simple) strategy^M
+xfsdump: version 3.1.7 (dump format 3.0)^M
+xfsdump: level 0 dump of lvm:/^M
+xfsdump: dump date: Sun Jan 22 19:36:34 2023^M
+xfsdump: session id: 594d7502-f744-43a1-9c0b-aa5810bde6bf^M
+xfsdump: session label: ""^M
+xfsrestore: using file dump (drive_simple) strategy^M
+xfsrestore: version 3.1.7 (dump format 3.0)^M
+xfsrestore: searching media for dump^M
+xfsdump: ino map phase 1: constructing initial dump list^M
+xfsdump: ino map phase 2: skipping (no pruning necessary)^M
+xfsdump: ino map phase 3: skipping (only one dump stream)^M
+xfsdump: ino map construction complete^M
+xfsdump: estimated dump size: 864022016 bytes^M
+xfsdump: creating dump session media file 0 (media 0, file 0)^M
+xfsdump: dumping ino map^M
+xfsdump: dumping directories^M
+xfsrestore: examining media file 0^M
+xfsrestore: dump description: ^M
+xfsrestore: hostname: lvm^M
+xfsrestore: mount point: /^M
+xfsrestore: volume: /dev/mapper/vg_root-lv_root^M
+xfsrestore: session time: Sun Jan 22 19:36:34 2023^M
+xfsrestore: level: 0^M
+xfsrestore: session label: ""^M
+xfsrestore: media label: ""^M
+xfsrestore: file system id: a7f81299-4b2a-47f3-9ff2-3e094a1e02ab^M
+xfsrestore: session id: 594d7502-f744-43a1-9c0b-aa5810bde6bf^M
+xfsrestore: media id: 832b1509-7065-465e-b11a-2292b5b639fd^M
+xfsrestore: searching media for directory dump^M
+xfsrestore: reading directories^M
+xfsdump: dumping non-directory files^M
+xfsrestore: 2751 directories and 23772 entries processed^M
+xfsrestore: directory post-processing^M
+xfsrestore: restoring non-directory files^M
+xfsdump: ending media file^M
+xfsdump: media file size 840836504 bytes^M
+xfsdump: dump size (non-dir files) : 827568184 bytes^M
+xfsdump: dump complete: 29 seconds elapsed^M
+xfsdump: Dump Status: SUCCESS^M
+xfsrestore: restore complete: 29 seconds elapsed^M
+xfsrestore: Restore Status: SUCCESS^M
+^[]0;root@lvm:/homework^G[root@lvm homework]# for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done^M
+
+# ЛОГ SCRIPT ДОБАВЛЯЕМ ^M В КОНЦЕ СТРОКИ + ИЗ ЗА CHROOT ЕГО ПРИХОДИТСЯ ПРЕРЫВАТЬ, ПОЖТОМУ ДАЛЬШЕ ПРИКЛАДЫВАЮ COPY-PAST ИЗ КОНСОЛИ
+
+[root@lvm homework]# chroot /mnt/
+[root@lvm /]# grub2-mkconfig -o /boot/grub2/grub.cfg
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
+Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
+done
+[root@lvm /]# cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; s/.img//g"` --force; done
+Executing: /sbin/dracut -v initramfs-3.10.0-862.2.3.el7.x86_64.img 3.10.0-862.2.3.el7.x86_64 --force
+dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
+dracut module 'crypt' will not be installed, because command 'cryptsetup' could not be found!
+dracut module 'dmraid' will not be installed, because command 'dmraid' could not be found!
+dracut module 'dmsquash-live-ntfs' will not be installed, because command 'ntfs-3g' could not be found!
+dracut module 'multipath' will not be installed, because command 'multipath' could not be found!
+dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
+dracut module 'crypt' will not be installed, because command 'cryptsetup' could not be found!
+dracut module 'dmraid' will not be installed, because command 'dmraid' could not be found!
+dracut module 'dmsquash-live-ntfs' will not be installed, because command 'ntfs-3g' could not be found!
+dracut module 'multipath' will not be installed, because command 'multipath' could not be found!
+*** Including module: bash ***
+*** Including module: nss-softokn ***
+*** Including module: i18n ***
+*** Including module: drm ***
+*** Including module: plymouth ***
+*** Including module: dm ***
+Skipping udev rule: 64-device-mapper.rules
+Skipping udev rule: 60-persistent-storage-dm.rules
+Skipping udev rule: 55-dm.rules
+*** Including module: kernel-modules ***
+Omitting driver floppy
+*** Including module: lvm ***
+Skipping udev rule: 64-device-mapper.rules
+Skipping udev rule: 56-lvm.rules
+Skipping udev rule: 60-persistent-storage-lvm.rules
+*** Including module: qemu ***
+*** Including module: resume ***
+*** Including module: rootfs-block ***
+*** Including module: terminfo ***
+*** Including module: udev-rules ***
+Skipping udev rule: 40-redhat-cpu-hotplug.rules
+Skipping udev rule: 91-permissions.rules
+*** Including module: biosdevname ***
+*** Including module: systemd ***
+*** Including module: usrmount ***
+*** Including module: base ***
+*** Including module: fs-lib ***
+*** Including module: shutdown ***
+*** Including modules done ***
+*** Installing kernel module dependencies and firmware ***
+*** Installing kernel module dependencies and firmware done ***
+*** Resolving executable dependencies ***
+*** Resolving executable dependencies done***
+*** Hardlinking files ***
+*** Hardlinking files done ***
+*** Stripping files ***
+*** Stripping files done ***
+*** Generating early-microcode cpio image contents ***
+*** Constructing AuthenticAMD.bin ****
+*** Store current command line parameters ***
+*** Creating image file ***
+*** Creating microcode section ***
+*** Created microcode section ***
+*** Creating image file done ***
+*** Creating initramfs image file '/boot/initramfs-3.10.0-862.2.3.el7.x86_64.img' done ***
+[root@lvm boot]# pvcreate /dev/sdc /dev/sdd
+  Physical volume "/dev/sdc" successfully created.
+  Physical volume "/dev/sdd" successfully created.
+[root@lvm boot]# vgcreate vg_var /dev/sdc /dev/sdd
+  Volume group "vg_var" successfully created
+[root@lvm boot]# lvcreate -L 950M -m1 -n lv_var vg_var
+  Rounding up size to full physical extent 952.00 MiB
+  Logical volume "lv_var" created.
+[root@lvm boot]# mkfs.ext4 /dev/vg_var/lv_var
+mke2fs 1.42.9 (28-Dec-2013)
+Filesystem label=
+OS type: Linux
+Block size=4096 (log=2)
+Fragment size=4096 (log=2)
+Stride=0 blocks, Stripe width=0 blocks
+60928 inodes, 243712 blocks
+12185 blocks (5.00%) reserved for the super user
+First data block=0
+Maximum filesystem blocks=249561088
+8 block groups
+32768 blocks per group, 32768 fragments per group
+7616 inodes per group
+Superblock backups stored on blocks:
+        32768, 98304, 163840, 229376
+
+Allocating group tables: done
+Writing inode tables: done
+Creating journal (4096 blocks): done
+Writing superblocks and filesystem accounting information: done
+
+[root@lvm boot]# mount /dev/vg_var/lv_var /mnt
+[root@lvm boot]# cp -aR /var/* /mnt/ # rsync -avHPSAX /var/ /mnt/
+[root@lvm boot]# mkdir /tmp/oldvar && mv /var/* /tmp/oldvar
+[root@lvm boot]# umount /mnt
+[root@lvm boot]# mount /dev/vg_var/lv_var /var
+[root@lvm boot]# echo "`blkid | grep var: | awk '{print $2}'` /var ext4 defaults 0 0" >> /etc/fstab
+
+[root@lvm homework]# sudo lvremove /dev/vg_root/lv_root
+Do you really want to remove active logical volume vg_root/lv_root? [y/n]: y
+  Logical volume "lv_root" successfully removed
+[root@lvm homework]# sudo vgremove /dev/vg_root
+  Volume group "vg_root" successfully removed
+[root@lvm homework]# sudo pvremove /dev/sdb
+  Labels on physical volume "/dev/sdb" successfully wiped.
+[root@lvm homework]# sudo lvcreate -n LogVol_Home -L 2G /dev/VolGroup00
+  Logical volume "LogVol_Home" created.
+[root@lvm homework]# mkfs.xfs /dev/VolGroup00/LogVol_Home
+meta-data=/dev/VolGroup00/LogVol_Home isize=512    agcount=4, agsize=131072 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=0, sparse=0
+data     =                       bsize=4096   blocks=524288, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal log           bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+[root@lvm homework]# sudo mount /dev/VolGroup00/LogVol_Home /mnt/
+[root@lvm homework]# lsblk -f
+NAME                       FSTYPE      LABEL UUID                                   MOUNTPOINT
+sda
+├─sda1
+├─sda2                     xfs               570897ca-e759-4c81-90cf-389da6eee4cc   /boot
+└─sda3                     LVM2_member       vrrtbx-g480-HcJI-5wLn-4aOf-Olld-rC03AY
+  ├─VolGroup00-LogVol00    xfs               7bc2fd2c-f4e7-4377-a4a6-47f739a23c82   /
+  ├─VolGroup00-LogVol01    swap              c39c5bed-f37c-4263-bee8-aeb6a6659d7b   [SWAP]
+  └─VolGroup00-LogVol_Home xfs               f1a9ec24-f6b2-40c2-8ea7-0d13df149fc1   /mnt
+sdb
+sdc                        LVM2_member       lwUyxE-YSzo-Q4JO-cO34-fU07-EJze-1uqwgd
+├─vg_var-lv_var_rmeta_0
+│ └─vg_var-lv_var          ext4              70f33225-ac6c-47c5-8f96-3d7f16650778   /var
+└─vg_var-lv_var_rimage_0
+  └─vg_var-lv_var          ext4              70f33225-ac6c-47c5-8f96-3d7f16650778   /var
+sdd                        LVM2_member       16cfDs-Z5DC-2mi5-aVpZ-0u5c-lpcW-ehcSOQ
+├─vg_var-lv_var_rmeta_1
+│ └─vg_var-lv_var          ext4              70f33225-ac6c-47c5-8f96-3d7f16650778   /var
+└─vg_var-lv_var_rimage_1
+  └─vg_var-lv_var          ext4              70f33225-ac6c-47c5-8f96-3d7f16650778   /var
+sde
+[root@lvm homework]# sudo cp -aR /home/* /mnt/
+[root@lvm homework]# pwd
+/homework
+[root@lvm homework]# rm -rf /home/*
+[root@lvm homework]# umount /mnt
+[root@lvm homework]# mount /dev/VolGroup00/LogVol_Home /home/
+[root@lvm homework]# echo "`blkid | grep Home | awk '{print $2}'` /home xfs defaults 0 0" >> /etc/fstab
+[root@lvm homework]# touch /home/file{1..20}
+[root@lvm homework]# ls /home
+file1   file11  file13  file15  file17  file19  file20  file4  file6  file8  vagrant
+file10  file12  file14  file16  file18  file2   file3   file5  file7  file9
+[root@lvm homework]# lvcreate -L 100MB -s -n home_snap /dev/VolGroup00/LogVol_Home
+  Rounding up size to full physical extent 128.00 MiB
+  Logical volume "home_snap" created.
+[root@lvm homework]# rm -f /home/file{11..20}
+[root@lvm homework]# ls /home
+file1  file10  file2  file3  file4  file5  file6  file7  file8  file9  vagrant
+[root@lvm homework]# umount /home
+[root@lvm homework]# lvconvert --merge /dev/VolGroup00/home_snap
+  Merging of volume VolGroup00/home_snap started.
+  VolGroup00/LogVol_Home: Merged: 100.00%
+[root@lvm homework]# mount /home
+[root@lvm homework]# ls /home
+file1   file11  file13  file15  file17  file19  file20  file4  file6  file8  vagrant
+file10  file12  file14  file16  file18  file2   file3   file5  file7  file9
