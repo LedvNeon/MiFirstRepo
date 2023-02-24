@@ -1,0 +1,37 @@
+# Обновим систему до актуальной (вывод очень большой - не привожу)
+[root@testserv1 vagrant]# yum update 
+
+# Настроим почтовый сервер на VM (подключена к основной через NAT и имеет отдельную сеть) - Postfix
+# Проверим установлен ли postfix
+[root@testserv1 vagrant]# rpm -qa | grep postfix
+postfix-2.10.1-9.el7.x86_64
+# В файл конфигурации внесём следующие значения:
+    <#
+    myhostname = smtp.domain.local (имя хоста почтового сервера)
+    mydomain = domain.local (имя домена)
+    myorigin = $mydomain (доменное имя, используемое в почте, отправленной с сервера - ссылаемся на mydomain)
+    mydestination = $myhostname, localhost.$mydomain, mail.$mydomain, www.$mydomain, localhost 
+    (домены -конечные точки)
+    mail_spool_directory = /var/spool/mail (центральная директория очередей с файлом для каждого пользователя)
+    mynetworks = 127.0.0.0/8, 192.168.50.0/24 (сети, обслуживаемые моим сервером, от других почта не будет пересылаться)
+    smtpd_banner = $myhostname ESMTP $mail_name (ответ сервера, при подключении клиентов)
+    inet_protocols = ipv4 (используемая версия протокола)
+    #>
+# Перезапустим сервер postfix
+[root@testserv1 vagrant]# systemctl restart postfix
+# Проверим наличие ошибок
+[root@testserv1 vagrant]# postfix check
+# Ошибок не найдено
+# Добавим postfix в автозагрузку и проверим его статус
+[root@testserv1 vagrant]# systemctl enable postfix
+[root@testserv1 vagrant]# systemctl status postfix
+● postfix.service - Postfix Mail Transport Agent
+   Loaded: loaded (/usr/lib/systemd/system/postfix.service; enabled; vendor preset: disabled)
+   Active: active (running) since Fri 2023-02-24 12:02:16 UTC; 2min 23s ago
+ Main PID: 1257 (master)
+   CGroup: /system.slice/postfix.service
+           ├─1257 /usr/libexec/postfix/master -w
+           ├─1258 pickup -l -t unix -u
+           └─1259 qmgr -l -t unix -u
+# Протестируем сервер
+
