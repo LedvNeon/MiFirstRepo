@@ -1,359 +1,183 @@
-<# ЗАДАЧА 1
-Запустить nginx на нестандартном порту 3-мя разными способами:
-переключатели setsebool;
-добавление нестандартного порта в имеющийся тип;
-формирование и установка модуля SELinux.
-К сдаче:
-README с описанием каждого решения (скриншоты и демонстрация приветствуются).#>
-# Поднимаем VM из Vagrantfile - в процессе запуска, видим, что nginx не запустился 
-    selinux: Job for nginx.service failed because the control process exited with error code. See "systemctl status nginx.service" and "journalctl -xe" for details.
-    selinux: ● nginx.service - The nginx HTTP and reverse proxy server
-    selinux:    Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
-    selinux:    Active: failed (Result: exit-code) since Sun 2023-03-05 17:56:09 UTC; 68ms ago
-    selinux:   Process: 2845 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=1/FAILURE)
-    selinux:   Process: 2843 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
-    selinux: 
-    selinux: Mar 05 17:56:09 selinux nginx[2845]: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-    selinux: Mar 05 17:56:09 selinux nginx[2845]: nginx: [emerg] bind() to 0.0.0.0:4881 failed (13: Permission denied)
-    selinux: Mar 05 17:56:09 selinux nginx[2845]: nginx: configuration file /etc/nginx/nginx.conf test failed
-    selinux: Mar 05 17:56:09 selinux systemd[1]: nginx.service: control process exited, code=exited status=1
-    selinux: Mar 05 17:56:09 selinux systemd[1]: Failed to start The nginx HTTP and reverse proxy server.
-    selinux: Mar 05 17:56:09 selinux systemd[1]: Unit nginx.service entered failed state.
-    selinux: Mar 05 17:56:09 selinux systemd[1]: nginx.service failed.
-The SSH command responded with a non-zero exit status. Vagrant
-assumes that this means the command failed. The output for this command
-should be in the log above. Please read the output to determine what
-went wrong.
-vagrant up
-# Подключаемся к пондятой VM по ssh
-PS C:\git\MiFirstRepo> vagrant ssh
-[vagrant@selinux ~]$ sudo su
-[root@selinux vagrant]# 
-# Проверим режим работы selinux
-[root@selinux vagrant]# sestatus
-SELinux status:                 enabled
-SELinuxfs mount:                /sys/fs/selinux
-SELinux root directory:         /etc/selinux
-Loaded policy name:             targeted
-Current mode:                   enforcing
-Mode from config file:          enforcing
-Policy MLS status:              enabled
-Policy deny_unknown status:     allowed
-Max kernel policy version:      31
+<#Задания на выбор:
 
-# По задания нужно было отключить firewall - проверим
-[root@selinux vagrant]# systemctl status firewalld
-● firewalld.service - firewalld - dynamic firewall daemon
-   Loaded: loaded (/usr/lib/systemd/system/firewalld.service; disabled; vendor preset: enabled)
-   Active: inactive (dead)
-     Docs: man:firewalld(1)
+написать свою реализацию ps ax используя анализ /proc
+Результат ДЗ - рабочий скрипт который можно запустить
+написать свою реализацию lsof
+Результат ДЗ - рабочий скрипт который можно запустить
+дописать обработчики сигналов в прилагаемом скрипте, оттестировать, приложить сам скрипт, инструкции по использованию
+Результат ДЗ - рабочий скрипт который можно запустить + инструкция по использованию и лог консоли
+реализовать 2 конкурирующих процесса по IO. пробовать запустить с разными ionice
+Результат ДЗ - скрипт запускающий 2 процесса с разными ionice, замеряющий время выполнения и лог консоли
+реализовать 2 конкурирующих процесса по CPU. пробовать запустить с разными nice
+Результат ДЗ - скрипт запускающий 2 процесса с разными nice и замеряющий время выполнения и лог консоли
+#>
 
-# Проверим конфигурацию nginx
+<#Для выполнения ДЗ используется стенд ns01 из дз по selinux (ветка selinux в данном репозитории)
+1. Напишем свою реализацию lsof (LiSt Open Files).
+Данная команда показывает какие файлы открыты какими процессами#>
 
-[root@selinux vagrant]# nginx -t
-nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-nginx: configuration file /etc/nginx/nginx.conf test is successful
+# Для начала установим lsof - посмотрим её результат
+[root@ns01 vagrant]# lsof
+bash: lsof: command not found
+[root@ns01 vagrant]# yum install lsof
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.corbina.net
+ * extras: mirrors.datahouse.ru
+ * updates: mirror.corbina.net
+base                                                                                          | 3.6 kB  00:00:00     
+extras                                                                                        | 2.9 kB  00:00:00     
+updates                                                                                       | 2.9 kB  00:00:00     
+updates/7/x86_64/primary_db                                                                   |  20 MB  00:00:15     
+Resolving Dependencies
+--> Running transaction check
+---> Package lsof.x86_64 0:4.87-6.el7 will be installed
+--> Finished Dependency Resolution
 
-# Разрешим в SELinux работу nginx на порту TCP 4881 c помощью переключателей setsebool
-# Находим в логах (/var/log/audit/audit.log) информацию о блокировании порта
-[root@selinux vagrant]# cat /var/log/audit/audit.log | grep 4881
-type=AVC msg=audit(1678038969.859:810): avc:  denied  { name_bind } for  pid=2845 comm="nginx" src=4881 scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
-# Ставим утилиты yum install policycoreutils-python (вывод большой, не прилагаю)
-[root@selinux vagrant]# yum install policycoreutils-python
-# Определим причину запрета доступа из файла аудита 
-[root@selinux vagrant]# grep 1678038969.859:810  /var/log/audit/audit.log | audit2why
-type=AVC msg=audit(1678038969.859:810): avc:  denied  { name_bind } for  pid=2845 comm="nginx" src=4881 scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
+Dependencies Resolved
 
-        Was caused by:
-        The boolean nis_enabled was set incorrectly.
-        Description:
-        Allow nis to enabled
+===================================================================================================================== Package                  Arch                       Version                          Repository                Size 
+=====================================================================================================================Installing:
+ lsof                     x86_64                     4.87-6.el7                       base                     331 k 
 
-        Allow access by executing:
-        # setsebool -P nis_enabled 1
+Transaction Summary
+=====================================================================================================================Install  1 Package
 
-# Мы видим, что нам нужно поменять параметр nis_enabled
-# Включим параметр nis_enabled и перезапустим nginx
-[root@selinux vagrant]# setsebool -P nis_enabled on
-[root@selinux vagrant]# systemctl restart nginx
-[root@selinux vagrant]# systemctl status nginx
-● nginx.service - The nginx HTTP and reverse proxy server
-   Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
-   Active: active (running) since Sun 2023-03-05 18:16:13 UTC; 5s ago
-  Process: 3129 ExecStart=/usr/sbin/nginx (code=exited, status=0/SUCCESS)
-  Process: 3127 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=0/SUCCESS)
-  Process: 3125 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
- Main PID: 3131 (nginx)
-   CGroup: /system.slice/nginx.service
-           ├─3131 nginx: master process /usr/sbin/nginx
-           └─3132 nginx: worker process
+Total download size: 331 k
+Installed size: 927 k
+Is this ok [y/d/N]: y
+Is this ok [y/d/N]: y
+Downloading packages:
+lsof-4.87-6.el7.x86_64.rpm                                                                    | 331 kB  00:00:00     
+Running transaction check
+Running transaction test
+Transaction test succeeded
+Running transaction
+  Installing : lsof-4.87-6.el7.x86_64                                                                            1/1 
+  Verifying  : lsof-4.87-6.el7.x86_64                                                                            1/1 
 
-Mar 05 18:16:13 selinux systemd[1]: Starting The nginx HTTP and reverse proxy server...
-Mar 05 18:16:13 selinux nginx[3127]: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-Mar 05 18:16:13 selinux nginx[3127]: nginx: configuration file /etc/nginx/nginx.conf test is successful
-Mar 05 18:16:13 selinux systemd[1]: Started The nginx HTTP and reverse proxy server.
+Installed:
+  lsof.x86_64 0:4.87-6.el7
 
-[root@selinux vagrant]# curl http://localhost:4881
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-  <title>Welcome to CentOS</title>
-  <style rel="stylesheet" type="text/css">
-    #Вывод кода большой - приложил только кусок
+Complete!
 
-# Проверим статус параметра nis_enabled
-[root@selinux vagrant]# getsebool -a | grep nis_enabled
-nis_enabled --> on
+# Вывод lsof очень большой, поэтому приложу часть
+[root@ns01 vagrant]# lsof
+lsof      1547        root  txt       REG                8,1   154184     231834 /usr/sbin/lsof
+lsof      1547        root  mem       REG                8,1  3489392  100664374 /usr/lib/locale/locale-archive      
+lsof      1547        root  mem       REG                8,1   142144       6862 /usr/lib64/libpthread-2.17.so       
+lsof      1547        root  mem       REG                8,1    19248       6810 /usr/lib64/libdl-2.17.so
+lsof      1547        root  mem       REG                8,1   402384       7123 /usr/lib64/libpcre.so.1.2.0
+lsof      1547        root  mem       REG                8,1  2156240       6804 /usr/lib64/libc-2.17.so
+lsof      1547        root  mem       REG                8,1   155744      11332 /usr/lib64/libselinux.so.1
+lsof      1547        root  mem       REG                8,1   163312       6797 /usr/lib64/ld-2.17.so
+lsof      1547        root    4r     FIFO                0,9      0t0      19179 pipe
+lsof      1547        root    7w     FIFO                0,9      0t0      19180 pipe
 
-# Вернём запрет работы nginx на порту 4881 обратно и перезапустим nginx (не запустится)
-[root@selinux vagrant]# setsebool -P nis_enabled off
-[root@selinux vagrant]# systemctl restart nginx
-Job for nginx.service failed because the control process exited with error code. See "systemctl status nginx.service" and "journalctl -xe" for details.
+# Т.к. мы знаем, что у нас есть директория /proc с информацией по процессам, воспользуемся ею
+# Вывод так же будет огромным - поэтому приложу только часть
+[root@ns01 vagrant]# find /proc/[0-9]*/fd -type l exec ls -l {} \;
+l-wx------. 1 root root 64 Mar 11 09:12 /proc/978/fd/6 -> /run/systemd/sessions/1.ref
+lr-x------. 1 root root 64 Mar 11 09:12 /proc/978/fd/7 -> pipe:[17131]
+l-wx------. 1 root root 64 Mar 11 09:12 /proc/978/fd/8 -> pipe:[17131]
+lrwx------. 1 root root 64 Mar 11 09:00 /proc/980/fd/0 -> /dev/tty1
+lrwx------. 1 root root 64 Mar 11 09:00 /proc/980/fd/1 -> /dev/tty1
+lrwx------. 1 root root 64 Mar 11 09:00 /proc/980/fd/2 -> /dev/tty1
+lrwx------. 1 root root 64 Mar 11 09:00 /proc/980/fd/3 -> socket:[17146]
+lrwx------. 1 root root 64 Mar 11 09:12 /proc/980/fd/4 -> socket:[17162]
+l-wx------. 1 root root 64 Mar 11 09:00 /proc/980/fd/6 -> /run/systemd/sessions/1.ref
+lrwx------. 1 root root 64 Mar 11 09:12 /proc/981/fd/0 -> /dev/tty1
+lrwx------. 1 root root 64 Mar 11 09:12 /proc/981/fd/1 -> /dev/tty1
+lrwx------. 1 root root 64 Mar 11 09:12 /proc/981/fd/2 -> /dev/tty1
+lrwx------. 1 root root 64 Mar 11 09:12 /proc/981/fd/255 -> /dev/tty1
 
-# Теперь разрешим в SELinux работу nginx на порту TCP 4881 c помощью добавления нестандартного порта в имеющийся тип
-[root@selinux vagrant]# semanage port -l | grep http
-http_cache_port_t              tcp      8080, 8118, 8123, 10001-10010
-http_cache_port_t              udp      3130
-http_port_t                    tcp      80, 81, 443, 488, 8008, 8009, 8443, 9000
-pegasus_http_port_t            tcp      5988
-pegasus_https_port_t           tcp      5989
+# 2. Реализуем 2 конкурирующих процесса по IO. Попробуем запустить с разными ionice
+# Сделаем это на примере dd ( предварительно создав файл на 2 Гб)
+[root@ns01 dir1]# pwd
+/home/vagrant
+[root@ns01 dir1]# mkdir dir1
+[root@ns01 dir1]# cd dir1
+[root@ns01 dir1]# pwd
+/home/vagrant/dir1
+[root@ns01 dir1]# dd if=/dev/zero of=/home/vagrant/dir1/test1.txt  bs=2048M  count=1
+0+1 records in
+0+1 records out
+2147479552 bytes (2.1 GB) copied, 68.7247 s, 31.2 MB/s
+[root@ns01 dir1]# ls -lh
+total 2.0G
+-rw-r--r--. 1 root root 2.0G Mar 11 09:43 test1.txt
 
-# Добавим порт в тип http_port_t (-a - добавить (add), -t (type) - тип, -p - протокол (protocol))
-[root@selinux vagrant]# semanage port -a -t http_port_t -p tcp 4881
-[root@selinux vagrant]# semanage port -l | grep  http_port_t
-http_port_t                    tcp      4881, 80, 81, 443, 488, 8008, 8009, 8443, 9000
-pegasus_http_port_t            tcp      5988
+[root@ns01 dir1]# time dd if=/home/vagrant/dir1/test1.txt of=/dev/null &
+[1] 4999
+[root@ns01 dir1]# time dd if=/home/vagrant/dir1/test1.txt of=/dev/null &
+[2] 5001
+[root@ns01 dir1]# 4194296+0 records in
+4194296+0 records out
+2147479552 bytes (2.1 GB) copied, 29.6523 s, 72.4 MB/s
 
-# Перезапустим nginx и проверим его работу
-[root@selinux vagrant]# systemctl restart nginx
-[root@selinux vagrant]# systemctl status nginx
-● nginx.service - The nginx HTTP and reverse proxy server
-   Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
-   Active: active (running) since Sun 2023-03-05 18:25:39 UTC; 7s ago
-  Process: 3181 ExecStart=/usr/sbin/nginx (code=exited, status=0/SUCCESS)
-  Process: 3179 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=0/SUCCESS)
-  Process: 3177 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
- Main PID: 3183 (nginx)
-   CGroup: /system.slice/nginx.service
-           ├─3183 nginx: master process /usr/sbin/nginx
-           └─3184 nginx: worker process
+real    0m29.687s
+user    0m1.945s
+sys     0m12.728s
+4194296+0 records in
+4194296+0 records out
+2147479552 bytes (2.1 GB) copied, 29.0966 s, 73.8 MB/s
 
-Mar 05 18:25:38 selinux systemd[1]: Starting The nginx HTTP and reverse proxy server...
-Mar 05 18:25:38 selinux nginx[3179]: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-Mar 05 18:25:38 selinux nginx[3179]: nginx: configuration file /etc/nginx/nginx.conf test is successful
-Mar 05 18:25:39 selinux systemd[1]: Started The nginx HTTP and reverse proxy server.
-
-# Удалим порт из списка разрешёных (параметр -d - delete)
-[root@selinux vagrant]# semanage port -d -t http_port_t -p tcp 4881
-[root@selinux vagrant]#
-[root@selinux vagrant]# systemctl restart nginx
-Job for nginx.service failed because the control process exited with error code. See "systemctl status nginx.service" and "journalctl -xe" for details.
-
-# Разрешим в SELinux работу nginx на порту TCP 4881 c помощью формирования и установки модуля SELinux
-# Для начала проверим лог
-[root@selinux vagrant]# grep nginx /var/log/audit/audit.log
-type=SYSCALL msg=audit(1678040869.236:890): arch=c000003e syscall=49 success=no exit=-13 a0=6 a1=557a0201d878 a2=10 a3=7ffe45738f30 items=0 ppid=1 pid=3201 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="nginx" exe="/usr/sbin/nginx" subj=system_u:system_r:httpd_t:s0 key=(null)
-type=SERVICE_START msg=audit(1678040869.243:891): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='unit=nginx comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=failed'
-
-# Воспользуемся утилитой audit2allow для того, чтобы на основе логов SELinux сделать модуль, разрешающий 
-# работу nginx на нестандартном порту
-[root@selinux vagrant]# grep nginx /var/log/audit/audit.log | audit2allow -M nginx
-******************** IMPORTANT ***********************
-To make this policy package active, execute:
-
-semodule -i nginx.pp
-
-# Audit2allow сформировал модуль, и сообщил нам команду, 
-# с помощью которой можно применить данный модуль: semodule -i nginx.pp
-
-[root@selinux vagrant]# semodule -i nginx.pp
-[root@selinux vagrant]# 
-[root@selinux vagrant]# systemctl start nginx
-[root@selinux vagrant]# systemctl status nginx
-● nginx.service - The nginx HTTP and reverse proxy server
-   Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
-   Active: active (running) since Sun 2023-03-05 18:34:19 UTC; 6s ago
-  Process: 3229 ExecStart=/usr/sbin/nginx (code=exited, status=0/SUCCESS)
-  Process: 3227 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=0/SUCCESS)
-  Process: 3225 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
- Main PID: 3231 (nginx)
-   CGroup: /system.slice/nginx.service
-           ├─3231 nginx: master process /usr/sbin/nginx
-           └─3232 nginx: worker process
-
-Mar 05 18:34:19 selinux systemd[1]: Starting The nginx HTTP and reverse proxy server...
-Mar 05 18:34:19 selinux nginx[3227]: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-Mar 05 18:34:19 selinux nginx[3227]: nginx: configuration file /etc/nginx/nginx.conf test is successful
-Mar 05 18:34:19 selinux systemd[1]: Started The nginx HTTP and reverse proxy server.
-
-# Посмотрим имеющиеся модули (их много вывод не приводил)
-[root@selinux vagrant]# semodule -l
-[root@selinux vagrant]# semodule -l | grep nginx
-nginx   1.0
-
-# Удалим созданный модуль (-r - remove - удалить)
-[root@selinux vagrant]# semodule -r nginx
-libsemanage.semanage_direct_remove_key: Removing last nginx module (no other nginx module exists at another priority).
-[root@selinux vagrant]# semodule -l | grep nginx
-
-<# ЗАДАЧА 2
-Обеспечить работоспособность приложения при включенном selinux.
-развернуть приложенный стенд https://github.com/mbfx/otus-linux-adm/tree/master/selinux_dns_problems;
-выяснить причину неработоспособности механизма обновления зоны (см. README);
-предложить решение (или решения) для данной проблемы;
-выбрать одно из решений для реализации, предварительно обосновав выбор;
-реализовать выбранное решение и продемонстрировать его работоспособность.
-К сдаче:
-README с анализом причины неработоспособности, возможными способами решения и обоснованием выбора одного из них;
-исправленный стенд или демонстрация работоспособной системы скриншотами и описанием.#>
-
-PS C:\> mkdir "homework_selinux"
-PS C:\> cd homework_selinux
-PS C:\homework_selinux> git clone https://github.com/mbfx/otus-linux-adm.git
-Cloning into 'otus-linux-adm'...
-remote: Enumerating objects: 558, done.
-remote: Counting objects: 100% (456/456), done.
-remote: Compressing objects: 100% (303/303), done.
-Receiving objects: 100% (558/558), 1.38 MiB | 2.09 MiB/s, done.ed 102 eceiving objects:  88% (492/558), 1.08 MiB | 2.12 MiB/s   
-Resolving deltas:  34% (48/140)
+real    0m29.112s
+user    0m1.616s
+sys     0m12.267s
+# Видим, что время примерно одинаковое - real    0m29.687s и real    0m29.112s
 
 
-    Каталог: C:\homework_selinux
+# Теперь запустим один с наивысшим (ionice -n 1 -p 4993 - взято из вывода) приоритетом а второй с наименьшим (ionice -n 3 -p  4995 - взято из вывода)
 
+[root@ns01 dir1]# time dd if=/home/vagrant/dir1/test1.txt of=/dev/null &
+[1] 4993
+[root@ns01 dir1]# time dd if=/home/vagrant/dir1/test1.txt of=/dev/null &
+[2] 4995
+[root@ns01 dir1]# ionice -n 1 -p 4993
+[root@ns01 dir1]# ionice -n 3 -p 4995
+[root@ns01 dir1]# 4194296+0 records in
+4194296+0 records out
+2147479552 bytes (2.1 GB) copied, 28.6413 s, 75.0 MB/s
 
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
-d-----        05.03.2023     21:42                otus-linux-adm
+real    0m28.659s
+user    0m1.767s
+sys     0m12.492s
+4194296+0 records in
+4194296+0 records out
+2147479552 bytes (2.1 GB) copied, 29.5402 s, 72.7 MB/s
 
+real    0m29.609s
+user    0m1.988s
+sys     0m13.078s
 
-PS C:\homework_selinux> cd otus-linux-adm 
-PS C:\homework_selinux\otus-linux-adm> vagrant init
-PS C:\homework_selinux\otus-linux-adm> vagrant up
-PS C:\homework_selinux\otus-linux-adm> vagrant status
-Current machine states:
-ns01                      running (virtualbox)
-client                    running (virtualbox)
+# Видим, что процесс с меньшим приоритетом выполнялся на секунду дольше.
+# Причина в маленькой разнице в том, что система не нагружена
 
-<# На самом деле на данном этапе машины из Vagrantfile развёртывал поочерёдно
-+ ansible не работает, как сервер из под windows.
-Сделал через wsl, подключив ubuntu wsl к поднятым vm через мост
-В ubuntu wsl настроил ansible и с помощью playbook из https://github.com/mbfx/otus-linux-adm/tree/master/selinux_dns_problemsнастроил хосты для лабы #>
+# Реализуем 2 конкурирующих процесса по CPU. Попробуем запустить с разными nice (используя ту же time dd if=/home/vagrant/dir1/test1.txt of=/dev/null &)
 
-# Подулючаемся к клиенту и пробуем удалённо изменить данные в зоне dns ddns.lab
-[root@client vagrant]# nsupdate -k /etc/named.zonetransfer.key
-> server 192.168.50.10
-> zone ddns.lab
-> update add www.ddns.lab. 60 A 192.168.50.15
-> send
-update failed: SERVFAIL
-> quit
-# Получаем ошибку update failed: SERVFAIL
-# На клиенте ошибок нет
-[root@client vagrant]# cat /var/log/audit/audit.log | audit2why
-[root@client vagrant]# 
-# Идём на сервер
-[root@ns01 vagrant]# cat /var/log/audit/audit.log | audit2why
-type=AVC msg=audit(1678127747.047:2032): avc:  denied  { create } for  pid=4535 comm="isc-worker0000" name="named.ddns.lab.view1.jnl" scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:etc_t:s0 tclass=file permissive=0
+[root@ns01 dir1]# renice -n -10 -p 5019 
 
-        Was caused by:
-                Missing type enforcement (TE) allow rule.
+top - 10:00:38 up  1:01,  2 users,  load average: 1.73, 0.76, 0.59
+Tasks:  91 total,   3 running,  88 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 12.1 us, 65.8 sy,  0.0 ni,  0.0 id,  0.0 wa,  0.0 hi, 22.1 si,  0.0 st
+KiB Mem :   240644 total,     3996 free,    51400 used,   185248 buff/cache
+KiB Swap:  2097148 total,  1973256 free,   123892 used.   180600 avail Mem
 
-                You can use audit2allow to generate a loadable module to allow this access.
-# В логах мы видим, что ошибка в контексте безопасности. Вместо типа named_t используется тип etc_t
-# Проверим данную проблему в каталоге /etc/named
-[root@ns01 vagrant]# ls -laZ /etc/named
-drw-rwx---. root named system_u:object_r:etc_t:s0       .
-drwxr-xr-x. root root  system_u:object_r:etc_t:s0       ..
-drw-rwx---. root named unconfined_u:object_r:etc_t:s0   dynamic
--rw-rw----. root named system_u:object_r:etc_t:s0       named.50.168.192.rev
--rw-rw----. root named system_u:object_r:etc_t:s0       named.dns.lab
--rw-rw----. root named system_u:object_r:etc_t:s0       named.dns.lab.view1
--rw-rw----. root named system_u:object_r:etc_t:s0       named.newdns.lab
+  PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND                                           
+ 5019 root      10 -10    7816    580    484 R 87.9  0.2   0:12.92 dd                                                
+ 5021 root      20   0    7816    584    484 R  9.2  0.2   0:06.23 dd 
 
-# Тут мы также видим, что контекст безопасности неправильный. Проблема заключается в том, что конфигурационные # файлы лежат в другом каталоге.
-# Посмотрим, где должны лежать, что бы политики применялись
-[root@ns01 vagrant]# sudo semanage fcontext -l | grep named 
-# Вывод достаточно большой - не прикладывал
+ # Используя top видим, что приоритет изменился. Теперь процесс с приоритетом 10 выполнится быстрее
+# Разница в 5 секунд
 
-# Изменим тип контекста безопасности для каталога /etc/named:
-[root@ns01 vagrant]# sudo chcon -R -t named_zone_t /etc/named
-[root@ns01 vagrant]# ls -laZ /etc/named
-drw-rwx---. root named system_u:object_r:named_zone_t:s0 .
-drwxr-xr-x. root root  system_u:object_r:etc_t:s0       ..
-drw-rwx---. root named unconfined_u:object_r:named_zone_t:s0 dynamic
--rw-rw----. root named system_u:object_r:named_zone_t:s0 named.50.168.192.rev
--rw-rw----. root named system_u:object_r:named_zone_t:s0 named.dns.lab
--rw-rw----. root named system_u:object_r:named_zone_t:s0 named.dns.lab.view1
--rw-rw----. root named system_u:object_r:named_zone_t:s0 named.newdns.lab
+real    0m25.748s
+user    0m1.848s
+sys     0m12.800s
+4194296+0 records in
+4194296+0 records out
+2147479552 bytes (2.1 GB) copied, 30.0528 s, 71.5 MB/s
 
-# Снова пробуем внести изменения с клиента
-[root@client vagrant]# nsupdate -k /etc/named.zonetransfer.key                                                                  
-> server 192.168.50.10
-> zone ddns.lab
-> update add www.ddns.lab. 60 A 192.168.50.15
-> send
-> quit 
-# Ошибки нет
-# Проверим работу
-[root@ns01 vagrant]# dig www.ddns.lab
-; <<>> DiG 9.11.4-P2-RedHat-9.11.4-26.P2.el7_9.7 <<>> www.ddns.lab
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 52762
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 2
-
-;; OPT PSEUDOSECTION:
-; EDNS: version: 0, flags:; udp: 4096
-;; QUESTION SECTION:
-;www.ddns.lab.          IN  A
-
-;; ANSWER SECTION:
-www.ddns.lab.       60  IN  A   192.168.50.15
-
-;; AUTHORITY SECTION:
-ddns.lab.       3600    IN  NS  ns01.dns.lab.
-
-;; ADDITIONAL SECTION:
-ns01.dns.lab.       3600    IN  A   192.168.50.10
-
-;; Query time: 1 msec
-;; SERVER: 192.168.50.10#53(192.168.50.10)
-;; WHEN: Thu Nov 18 10:34:41 UTC 2021
-;; MSG SIZE  rcvd: 96
-[root@ns01 vagrant]#
-
-# После перезагрузки так же всё ок
-[root@ns01 vagrant]# dig @192.168.50.10 www.ddns.lab
-; <<>> DiG 9.11.4-P2-RedHat-9.11.4-26.P2.el7_9.7 <<>> @192.168.50.10 www.ddns.lab
-; (1 server found)
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 52392
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 2
-
-
-;; OPT PSEUDOSECTION:
-; EDNS: version: 0, flags:; udp: 4096
-;; QUESTION SECTION:
-;www.ddns.lab.          IN  A
-
-
-;; ANSWER SECTION:
-www.ddns.lab.       60  IN  A   192.168.50.15
-
-
-;; AUTHORITY SECTION:
-ddns.lab.       3600    IN  NS  ns01.dns.lab.
-
-
-;; ADDITIONAL SECTION:
-ns01.dns.lab.       3600    IN  A   192.168.50.10
-
-
-;; Query time: 2 msec
-;; SERVER: 192.168.50.10#53(192.168.50.10)
-;; WHEN: Thu Nov 18 15:49:07 UTC 2021
-;; MSG SIZE  rcvd: 96
-
-
-
+real    0m30.058s
+user    0m1.681s
+sys     0m12.262s
