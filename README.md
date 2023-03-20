@@ -1,547 +1,443 @@
-# Поднимем VM из Vagrantfile, указанного в методичке (поместив его в C:\git\MiFirstRepo) 
-# https://gist.github.com/lalbrekht/f811ce9a921570b1d95e07a7dbebeb1e, со следующими изменениями:
-# private_network заменим на public_network, что бы VM была в моём сетевом окружении и укажим IP=192.168.1.70
-# У меня в сетевом окружении есть wsl ubuntu, на котрой уже развёрнут ansible, настроенный в рамках
-# выполнения дз по selinux (следующая лаба, просто делал раньше, ссылка на епозиторий - https://github.com/LedvNeon/MiFirstRepo/tree/selinux)
+# Задание:
+<#1.Написать Dockerfile на базе apache/nginx который будет содержать две статичные web-страницы на разных портах. 
+Например, 80 и 3000. 
+2.Пробросить эти порты на хост машину. Обе страницы должны быть доступны по адресам localhost:80 и localhost:3000 
+3.Добавить 2 вольюма. Один для логов приложения, другой для web-страниц.
+#>
 
+# Поднимим VM из Vagrantfile
 PS C:\git\MiFirstRepo> vagrant up
 
-# Подключимся по ssh и перейдём режим суперпользователя
+# Подключимся к VM по ssh и перейдём в режим супрепользователя
 PS C:\git\MiFirstRepo> vagrant ssh
-[vagrant@nginx ~]$ sudo su
-[root@nginx vagrant]# 
-[root@nginx ansible]# hostname
-nginx
-[root@nginx ansible]# yum update
-[root@nginx ansible]# yum install epel-release
-# Машинка доступна - всё хорошо
+[vagrant@localhost ~]$ sudo su
 
-# На wsl ubuntu перенесём папку ./vagrant из C:\git\MiFirstRepo и положим в \\wsl$\Ubuntu-20.04\home\dima
-root@DESKTOP-9BHG4U3:/home/dima# pwd
-/home/dima
-# Проверим наличие данного файла в указанной диреткории
-root@DESKTOP-9BHG4U3:/home/dima# ls -la
-total 20
-drwxr-xr-x 1 dima dima  512 Mar 12 23:11 .
-drwxr-xr-x 1 root root  512 Mar  7  2021 ..
-drwxr-xr-x 1 dima dima  512 Mar  6 16:09 .ansible
--rw------- 1 dima dima  845 Mar  6 22:23 .bash_history
--rw-r--r-- 1 dima dima  220 Mar  7  2021 .bash_logout
--rw-r--r-- 1 dima dima 3771 Mar  7  2021 .bashrc
-drwxr-xr-x 1 dima dima  512 Mar  7  2021 .landscape
--rw-r--r-- 1 dima dima    0 Mar 12 22:48 .motd_shown
--rw-r--r-- 1 dima dima  807 Mar  7  2021 .profile
--rw-r--r-- 1 dima dima    0 Mar  6 15:57 .sudo_as_admin_successful
-drwxr-xr-x 1 dima dima  512 Mar 12 23:10 .vagrant
--rw------- 1 dima dima 1239 Mar 12 23:08 .viminfo
-drwxr-xr-x 1 dima dima  512 Mar  6 15:55 files
--rw-r--r-- 1 root root  158 Mar 12 23:11 hosts
--rw-r--r-- 1 dima dima 3117 Mar  6 21:00 playbook.yml
-drwxr-xr-x 1 root root  512 Mar  6 20:27 testbook
-# Файл есть
+# Обновим ОС:
+[root@localhost vagrant]# yum update -y
 
-# Создадим в /home/dima файл hosts со следующем содержанием:
-<#
-[web]
-# имя хоста      IP хоста      порт для опдлкючения   пользователь    адрес файла с ключом ssh для подключения
-nginx ansible_host=192.168.1.70 ansible_port=22 ansible_user=vagrant ansible_private_key_file=/home/dima/.vagrant/machines/nginx/virtualbox/private_key
-#>
+# Отключим firewalld и selinux, т.к. лабораторная работа тестовая
+[root@localhost docker]# systemctl stop firewalld.service
+[root@localhost docker]# systemctl disable firewalld.service
+[root@localhost docker]# vi /etc/selinux/config
+[root@localhost docker]# cat /etc/selinux/config
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#     enforcing - SELinux security policy is enforced.
+#     permissive - SELinux prints warnings instead of enforcing.
+#     disabled - No SELinux policy is loaded.
+# SELINUX=enforcing
+  SELINUX=disabled
+# SELINUXTYPE= can take one of three values:
+#     targeted - Targeted processes are protected,
+#     minimum - Modification of targeted policy. Only selected processes are protected.
+#     mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+[root@localhost docker]# setenforce 0
 
-# Проверим возможность работы с удалённм хостом
+# Хотя с проверял и с включенными - работает без доп. настроек
 
-root@DESKTOP-9BHG4U3:/home/dima# ansible nginx -i hosts -m ping
-nginx | SUCCESS => {
-    "ansible_facts": {
-        "discovered_interpreter_python": "/usr/bin/python"
-    },
-    "changed": false,
-    "ping": "pong"
-}
-# Получили ответ pong - всё хорошо
+# Установим docker
+[root@localhost vagrant]# yum install docker -y
 
-# Создадим файл конфигурации ansible.cfg, что не указывать явно hosts и прочие параметры. Их пропишем в ansible.cfg.
-root@DESKTOP-9BHG4U3:/home/dima# cat ansible.cfg
-[defaults]
-inventory = hosts
-remote_user = vagrant
-host_key_checking = False
-retry_files_enabled = False
+# Запустим docker и добавим в автозагрузку
+[root@localhost vagrant]# systemctl start docker
+[root@localhost vagrant]# systemctl enable docker
+Created symlink from /etc/systemd/system/multi-user.target.wants/docker.service to /usr/lib/systemd/system/docker.service.
+[root@localhost vagrant]# systemctl status docker
+● docker.service - Docker Application Container Engine
+   Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; vendor preset: disabled)
+   Active: active (running) since Sun 2023-03-19 15:05:57 UTC; 22s ago
+     Docs: http://docs.docker.com
+ Main PID: 20582 (dockerd-current)
+   CGroup: /system.slice/docker.service
+           ├─20582 /usr/bin/dockerd-current --add-runtime docker-runc=/usr/libexec/docker/docker-runc-current --default-runti...           └─20587 /usr/bin/docker-containerd-current -l unix:///var/run/docker/libcontainerd/docker-containerd.sock --metric...
+Mar 19 15:05:54 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:54.990652528Z" level=info msg="libco...587"Mar 19 15:05:56 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:56.298502702Z" level=info msg="Graph...nds"Mar 19 15:05:56 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:56.302766762Z" level=info msg="Loadi...rt."Mar 19 15:05:56 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:56.602648953Z" level=info msg="Firew...lse"Mar 19 15:05:56 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:56.960857653Z" level=info msg="Defau...ess"Mar 19 15:05:57 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:57.178364363Z" level=info msg="Loadi...ne."Mar 19 15:05:57 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:57.327970503Z" level=info msg="Daemo...ion"Mar 19 15:05:57 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:57.328089285Z" level=info msg="Docke...13.1Mar 19 15:05:57 localhost.localdomain dockerd-current[20582]: time="2023-03-19T15:05:57.537032876Z" level=info msg="API l...ock"Mar 19 15:05:57 localhost.localdomain systemd[1]: Started Docker Application Container Engine.
+Hint: Some lines were ellipsized, use -l to show in full.
 
-# Теперь уберём лишнее из hosts (информацию о пользователе)
-root@DESKTOP-9BHG4U3:/home/dima# cat hosts
-[web]
-nginx ansible_host=192.168.1.70 ansible_port=22 ansible_private_key_file=/home/dima/.vagrant/machines/nginx/virtualbox/private_key
+# Создадим директорию, где будем создавать dockerfile 
+[root@localhost vagrant]# pwd
+/home/vagrant
+[root@localhost vagrant]# mkdir /home/vagrant/docker
+[root@localhost vagrant]# cd docker/
 
-# Ещё раз проверим, что всё работает
-root@DESKTOP-9BHG4U3:/home/dima# ansible nginx -m ping
-nginx | SUCCESS => {
-    "ansible_facts": {
-        "discovered_interpreter_python": "/usr/bin/python"
-    },
-    "changed": false,
-    "ping": "pong"
-}
-# Получили pong - всё хорошо
-<#
-Теперь, когда мы убедились, что у нас всё подготовлено - установлен
-Ansible, поднят хост для теста и Ansible имеет к нему доступ, мы можем
-конфигурировать наш хост.
-Для начала воспользуемсā Ad-Hoc командами и выполним некоторые
-удаленные команды на нашем хосте.
-#>
+# Содадим простенький Dockerfile с nginx с содержимым:
+FROM nginx:latest
 
-# Посмотрим ядро
-root@DESKTOP-9BHG4U3:/home/dima# ansible nginx -m command -a "uname -r"
-nginx | CHANGED | rc=0 >>
-3.10.0-1160.88.1.el7.x86_64
+# Соберём из него образ и запустим контейнер (точка в конце build означает, что пусть к Dockerfile в текущей директории)
+[root@localhost docker]# docker build -t nginx .
+Sending build context to Docker daemon 2.048 kB
+Step 1/1 : FROM nginx:latest
+Trying to pull repository docker.io/library/nginx ... 
+latest: Pulling from docker.io/library/nginx
+3f9582a2cbe7: Pull complete
+9a8c6f286718: Pull complete
+e81b85700bc2: Pull complete
+73ae4d451120: Pull complete
+6058e3569a68: Pull complete
+3a1b8f201356: Pull complete
+Digest: sha256:aa0afebbb3cfa473099a62c4b32e9b3fb73ed23f2a75a65ce1d4b4f55a5c2ef2
+Status: Downloaded newer image for docker.io/nginx:latest
+ ---> 904b8cb13b93
+Successfully built 904b8cb13b93
 
-# Посомтрим статус firewalld
-root@DESKTOP-9BHG4U3:/home/dima# ansible nginx -m systemd -a name=firewalld
-nginx | SUCCESS => {
-    "ansible_facts": {
-        "discovered_interpreter_python": "/usr/bin/python"
-    },
-    "changed": false,
-    "name": "firewalld",
-    "status": {
-        "ActiveEnterTimestampMonotonic": "0",
-        "ActiveExitTimestampMonotonic": "0",
-        "ActiveState": "inactive",
-        "After": "polkit.service system.slice basic.target dbus.service",
-        "AllowIsolate": "no",
-        "AmbientCapabilities": "0",
-        "AssertResult": "no",
-        "AssertTimestampMonotonic": "0",
-        "Before": "shutdown.target network-pre.target",
-        "BlockIOAccounting": "no",
-        "BlockIOWeight": "18446744073709551615",
-        "BusName": "org.fedoraproject.FirewallD1",
-        "CPUAccounting": "no",
-        "CPUQuotaPerSecUSec": "infinity",
-        "CPUSchedulingPolicy": "0",
-        "CPUSchedulingPriority": "0",
-        "CPUSchedulingResetOnFork": "no",
-        "CPUShares": "18446744073709551615",
-        "CanIsolate": "no",
-        "CanReload": "yes",
-        "CanStart": "yes",
-        "CanStop": "yes",
-        "CapabilityBoundingSet": "18446744073709551615",
-        "CollectMode": "inactive",
-        "ConditionResult": "no",
-        "ConditionTimestampMonotonic": "0",
-        "Conflicts": "shutdown.target ip6tables.service ipset.service iptables.service ebtables.service",
-        "ControlPID": "0",
-        "DefaultDependencies": "yes",
-        "Delegate": "no",
-        "Description": "firewalld - dynamic firewall daemon",
-        "DevicePolicy": "auto",
-        "Documentation": "man:firewalld(1)",
-        "EnvironmentFile": "/etc/sysconfig/firewalld (ignore_errors=yes)",
-        "ExecMainCode": "0",
-        "ExecMainExitTimestampMonotonic": "0",
-        "ExecMainPID": "0",
-        "ExecMainStartTimestampMonotonic": "0",
-        "ExecMainStatus": "0",
-        "ExecReload": "{ path=/bin/kill ; argv[]=/bin/kill -HUP $MAINPID ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
-        "ExecStart": "{ path=/usr/sbin/firewalld ; argv[]=/usr/sbin/firewalld --nofork --nopid $FIREWALLD_ARGS ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
-        "FailureAction": "none",
-        "FileDescriptorStoreMax": "0",
-        "FragmentPath": "/usr/lib/systemd/system/firewalld.service",
-        "GuessMainPID": "yes",
-        "IOScheduling": "0",
-        "Id": "firewalld.service",
-        "IgnoreOnIsolate": "no",
-        "IgnoreOnSnapshot": "no",
-        "IgnoreSIGPIPE": "yes",
-        "InactiveEnterTimestampMonotonic": "0",
-        "InactiveExitTimestampMonotonic": "0",
-        "JobTimeoutAction": "none",
-        "JobTimeoutUSec": "0",
-        "KillMode": "mixed",
-        "KillSignal": "15",
-        "LimitAS": "18446744073709551615",
-        "LimitCORE": "18446744073709551615",
-        "LimitCPU": "18446744073709551615",
-        "LimitDATA": "18446744073709551615",
-        "LimitFSIZE": "18446744073709551615",
-        "LimitLOCKS": "18446744073709551615",
-        "LimitMEMLOCK": "65536",
-        "LimitMSGQUEUE": "819200",
-        "LimitNICE": "0",
-        "LimitNOFILE": "4096",
-        "LimitNPROC": "656",
-        "LimitRSS": "18446744073709551615",
-        "LimitRTPRIO": "0",
-        "LimitRTTIME": "18446744073709551615",
-        "LimitSIGPENDING": "656",
-        "LimitSTACK": "18446744073709551615",
-        "LoadState": "loaded",
-        "MainPID": "0",
-        "MemoryAccounting": "no",
-        "MemoryCurrent": "18446744073709551615",
-        "MemoryLimit": "18446744073709551615",
-        "MountFlags": "0",
-        "Names": "firewalld.service",
-        "NeedDaemonReload": "no",
-        "Nice": "0",
-        "NoNewPrivileges": "no",
-        "NonBlocking": "no",
-        "NotifyAccess": "none",
-        "OOMScoreAdjust": "0",
-        "OnFailureJobMode": "replace",
-        "PermissionsStartOnly": "no",
-        "PrivateDevices": "no",
-        "PrivateNetwork": "no",
-        "PrivateTmp": "no",
-        "ProtectHome": "no",
-        "ProtectSystem": "no",
-        "RefuseManualStart": "no",
-        "RefuseManualStop": "no",
-        "RemainAfterExit": "no",
-        "Requires": "system.slice basic.target",
-        "Restart": "no",
-        "RestartUSec": "100ms",
-        "Result": "success",
-        "RootDirectoryStartOnly": "no",
-        "RuntimeDirectoryMode": "0755",
-        "SameProcessGroup": "no",
-        "SecureBits": "0",
-        "SendSIGHUP": "no",
-        "SendSIGKILL": "yes",
-        "Slice": "system.slice",
-        "StandardError": "null",
-        "StandardInput": "null",
-        "StandardOutput": "null",
-        "StartLimitAction": "none",
-        "StartLimitBurst": "5",
-        "StartLimitInterval": "10000000",
-        "StartupBlockIOWeight": "18446744073709551615",
-        "StartupCPUShares": "18446744073709551615",
-        "StatusErrno": "0",
-        "StopWhenUnneeded": "no",
-        "SubState": "dead",
-        "SyslogLevelPrefix": "yes",
-        "SyslogPriority": "30",
-        "SystemCallErrorNumber": "0",
-        "TTYReset": "no",
-        "TTYVHangup": "no",
-        "TTYVTDisallocate": "no",
-        "TasksAccounting": "no",
-        "TasksCurrent": "18446744073709551615",
-        "TasksMax": "18446744073709551615",
-        "TimeoutStartUSec": "1min 30s",
-        "TimeoutStopUSec": "1min 30s",
-        "TimerSlackNSec": "50000",
-        "Transient": "no",
-        "Type": "dbus",
-        "UMask": "0022",
-        "UnitFilePreset": "enabled",
-        "UnitFileState": "disabled",
-        "Wants": "network-pre.target",
-        "WatchdogTimestampMonotonic": "0",
-        "WatchdogUSec": "0"
+[root@localhost docker]# docker run -it --rm -d -p 80:80 -p 3000:3000 --name nginx nginx
+377b30d9cb8d777c97dc38fd0b51ca5c1f382232a891517c9ab1b5c6fd04147e
+
+# Т.к. несколько раз перезапускал контейнер, ID могут различаться
+
+[root@localhost vagrant]# docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS
+                 NAMES
+53ee58b9ad93        nginx               "/docker-entrypoin..."   39 minutes ago      Up 39 minutes       0.0.0.0:80->80/tcp, 0.0.0.0:3000->3000/tcp   nginx
+
+# Создадим директорию /home/vagrant/webserv, в которой подготовим новый файл конфигурации nginx (default.conf) со следующим содержимым:
+server {
+        listen       80;
+        listen       [::]:80;
+        server_name  localhost;
+        # root         /usr/share/nginx/html;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
     }
-}
 
-# По методичке нужно удалённо поставить epel-release, но он уже установлен. Просто приведу команду, как пример.
-# ansible nginx -m yum -a "name=epel-release state=present" -b
+        # Load configuration files for the default server block.
+        include /etc/nginx/default.d/*.conf;
 
-# Напишем простой playbook для установки epel-release
-root@DESKTOP-9BHG4U3:/home/dima# cat epel.yml
----
-  - name: Install EPEL Repo
-    hosts: nginx
-    become: true
-    tasks:
-     - name: Install EPEL Repo package from standart repo
-       yum:
-         name: epel-release
-         state: present
-
-root@DESKTOP-9BHG4U3:/home/dima# ansible-playbook epel.yml
-
-PLAY [Install EPEL Repo] **********************************************************************
-
-TASK [Gathering Facts] ************************************************************************
-ok: [nginx]
-
-TASK [Install EPEL Repo package from standart repo] *******************************************
-ok: [nginx]
-
-PLAY RECAP ************************************************************************************
-nginx                      : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
-
-# Выполним ansible nginx -m yum -a "name=epel-release state=absent" -b и попробуем запустить playbook ещё раз
-
-root@DESKTOP-9BHG4U3:/home/dima# ansible nginx -m yum -a "name=epel-release state=absent" -b
-nginx | CHANGED => {
-    "ansible_facts": {
-        "discovered_interpreter_python": "/usr/bin/python"
-    },
-    "changed": true,
-    "changes": {
-        "removed": [
-            "epel-release"
-        ]
-    },
-    "msg": "",
-    "rc": 0,
-    "results": [
-        "Loaded plugins: fastestmirror\nResolving Dependencies\n--> Running transaction check\n---> Package epel-release.noarch 0:7-14 will be erased\n--> Finished Dependency Resolution\n\nDependencies Resolved\n\n================================================================================\n Package                Arch             Version          Repository       Size\n================================================================================\nRemoving:\n epel-release           noarch           7-14             @epel            25 k\n\nTransaction Summary\n================================================================================\nRemove  1 Package\n\nInstalled size: 25 k\nDownloading packages:\nRunning transaction check\nRunning transaction test\nTransaction test succeeded\nRunning transaction\n  Erasing    : epel-release-7-14.noarch                                     1/1 \n  Verifying  : epel-release-7-14.noarch                                     1/1 \n\nRemoved:\n  epel-release.noarch 0:7-14                                                    \n\nComplete!\n"
-    ]
-}
-
-# Результат запуска epel.yml ниже
-root@DESKTOP-9BHG4U3:/home/dima# ansible-playbook epel.yml
-
-PLAY [Install EPEL Repo] *******************************************************************************************
-
-TASK [Gathering Facts] *********************************************************************************************
-ok: [nginx]
-
-TASK [Install EPEL Repo package from standart repo] ****************************************************************
-changed: [nginx]
-
-PLAY RECAP *********************************************************************************************************
-nginx                      : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0 
-
-# Видим одно изменение changed=1 
-
-# ТЕПЕРЬ НАПИШЕМ PLAYBOOK ДЛЯ УСТАНОВКИ NGINX
-
-root@DESKTOP-9BHG4U3:/home/dima# mv epel.yml /home/dima/nginx.yml
-root@DESKTOP-9BHG4U3:/home/dima# ls
-1.yml  ansible.cfg  files  hosts  nginx.yml  playbook.yml  testbook
-
-root@DESKTOP-9BHG4U3:/home/dima# cat nginx.yml
----
-  - name: NGINX | Install and configure NGINX
-    hosts: nginx
-    become: true
-
-    tasks:
-      - name: NGINX | Install EPEL Repo package from standart repo
-        yum:
-          name: epel-release
-          state: present
-        tags:
-          - epel-package
-          - packages
-
-      - name: NGINX | Install NGINX package from EPEL Repo
-        yum:
-          name: nginx
-          state: latest
-        tags:
-          - nginx-package
-          - packages
-root@DESKTOP-9BHG4U3:/home/dima#
-
-# Тэги добавили, что бы давать задания выборочно
-# Выведем в консоль все тэги
-
-root@DESKTOP-9BHG4U3:/home/dima# ansible-playbook nginx.yml --list-tags
-
-playbook: nginx.yml
-
-  play #1 (nginx): NGINX | Install and configure NGINX  TAGS: []
-      TASK TAGS: [epel-package, nginx-package, packages]
-
-# Запустим установку nginx
-root@DESKTOP-9BHG4U3:/home/dima# ansible-playbook nginx.yml -t nginx-package
-
-PLAY [NGINX | Install and configure NGINX] *************************************************************************
-
-TASK [Gathering Facts] *********************************************************************************************
-ok: [nginx]
-
-TASK [NGINX | Install NGINX package from EPEL Repo] ****************************************************************
-changed: [nginx]
-
-PLAY RECAP *********************************************************************************************************
-nginx                      : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0  
-
-# Добавим шаблон для конфига NGINX и модуль, который будет копировать этот шаблон на хост.
-<# 
-Для начала создадим директорию templates, где поместим файл nginx.conf.j2 следующего содержания:
-# {{ ansible_managed }}
-events {
-    worker_connections 1024;
-}
-
-http {
-    server {
-        listen       {{ nginx_listen_port }} default_server;
-        server_name  default_server;
-        root         /usr/share/nginx/html;
-
-        location / {
+        error_page 404 /404.html;
+        location = /404.html {
         }
-    }
+
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+        }
 }
-#>
 
-root@DESKTOP-9BHG4U3:/home/dima# mkdir templates
-root@DESKTOP-9BHG4U3:/home/dima# cd templates/
-root@DESKTOP-9BHG4U3:/home/dima# touch nginx.conf.j2
-root@DESKTOP-9BHG4U3:/home/dima# vi nginx.conf.j2
+server {
+        listen       3000;
+        listen       [::]:3000;
+        server_name  localhost;
+       # root         /usr/share/nginx/html;
+    location / {
+        root   /usr/share/nginx/html;
+        index  srv.html srv.htm;
+    }
+        # Load configuration files for the default server block.
+        include /etc/nginx/default.d/*.conf;
 
-root@DESKTOP-9BHG4U3:/home/dima# cat nginx.yml
----
-  - name: NGINX | Install and configure NGINX
-    hosts: nginx
-    become: true
+        error_page 404 /404.html;
+        location = /404.html {
+        }
 
-    tasks:
-      - name: NGINX | Install EPEL Repo package from standart repo
-        yum:
-          name: epel-release
-          state: present
-        tags:
-          - epel-package
-          - packages
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+        }
 
-      - name: NGINX | Install NGINX package from EPEL Repo
-        yum:
-          name: nginx
-          state: latest
-        tags:
-          - nginx-package
-          - packages
+}
 
-       - name: NGINX | Create NGINX config file from template
-           template:
-              src: templates/nginx.conf.j2
-              dest: /tmp/nginx.conf
-            tags:
-               - nginx-configuration
+# В этой же директории подготовим файл с содержимым ещё одной странички srv.html
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>TEST WEB SITE</title>
+</HEAD>
+<BODY>
+<h1>HELLO WORLD</h1>
+</BODY>
+</HTML>
 
-# Добавим так же переменную с портом
+# Зайдём в контейнер и уалим старый файл конфигурации
+[root@localhost vagrant]# docker exec -it nginx bash
+root@53ee58b9ad93:/# rm /etc/nginx/conf.d/default.conf
+root@53ee58b9ad93:/# exit
 
-root@DESKTOP-9BHG4U3:/home/dima# cat nginx.yml
----
-  - name: NGINX | Install and configure NGINX
-    hosts: nginx
-    become: true
-    vars:
-        nginx_listen_port: 8080
+# Скописруем новые файлы в онтейнер
+[root@localhost vagrant]# docker cp /home/vagrant/webserv/default.conf nginx:/etc/nginx/conf.d/default.conf
+[root@localhost vagrant]# docker cp /home/vagrant/webserv/srv.html nginx:/usr/share/nginx/html/srv.html
 
-    tasks:
-      - name: NGINX | Install EPEL Repo package from standart repo
-        yum:
-          name: epel-release
-          state: present
-        tags:
-          - epel-package
-          - packages
+# Зайдём в контейнер, проверим конфигурацию nginx и перезагрузим его
+# После этого выйдем из контейнера и проверим доступность на разных портах
+[root@localhost vagrant]# docker exec -it nginx bash
+root@53ee58b9ad93:/# nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
 
-      - name: NGINX | Install NGINX package from EPEL Repo
-        yum:
-          name: nginx
-          state: latest
-        tags:
-          - nginx-package
-          - packages
+root@53ee58b9ad93:/# nginx -s reload
+2023/03/20 11:54:26 [notice] 122#122: signal process started
 
-       - name: NGINX | Create NGINX config file from template
-           template:
-              src: templates/nginx.conf.j2
-              dest: /tmp/nginx.conf
-            tags:
-               - nginx-configuration
+root@53ee58b9ad93:/# exit
+exit
 
-# Теперь создадим handler и добавим notify к копированию шаблона. Теперь каждый раз когда конфиг будет изменāться - сервис перезагрузится.
-root@DESKTOP-9BHG4U3:/home/dima# cat nginx.yml
----
-  - name: NGINX | Install and configure NGINX
-    hosts: nginx
-    become: true
-    vars:
-      nginx_listen_port: 8080
-
-    tasks:
-      - name: NGINX | Install EPEL Repo package from standart repo
-        yum:
-          name: epel-release
-          state: present
-        tags:
-          - epel-package
-          - packages
-
-      - name: NGINX | Install NGINX package from EPEL Repo
-        yum:
-          name: nginx
-          state: latest
-        notify:
-          - restart nginx
-        tags:
-          - nginx-package
-          - packages
-
-      - name: NGINX | Create NGINX config file from template
-        template:
-          src: templates/nginx.conf.j2
-          dest: /etc/nginx/nginx.conf
-        notify:
-          - reload nginx
-        tags:
-          - nginx-configuration
-
-    handlers:
-      - name: restart nginx
-        systemd:
-          name: nginx
-          state: restarted
-          enabled: yes
-
-      - name: reload nginx
-        systemd:
-          name: nginx
-          state:
-
-# Запустим playbook
-
-root@DESKTOP-9BHG4U3:/home/dima# ansible-playbook nginx.yml
-
-PLAY [NGINX | Install and configure NGINX] *************************************************************************
-
-TASK [Gathering Facts] *********************************************************************************************
-ok: [nginx]
-
-TASK [NGINX | Install EPEL Repo package from standart repo] ********************************************************
-ok: [nginx]
-
-TASK [NGINX | Install NGINX package from EPEL Repo] ****************************************************************
-ok: [nginx]
-
-TASK [NGINX | Create NGINX config file from template] **************************************************************
-changed: [nginx]
-
-RUNNING HANDLER [reload nginx] *************************************************************************************
-changed: [nginx]
-
-PLAY RECAP *********************************************************************************************************
-nginx                      : ok=5    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0 
-
-# Видим, что ошибок нет. Изменений должно было быть ольше, но я запустил Playbook до того, как создал файл шаблона.
-# Поэтому после размещения файла шаблона и повторного запуска playbook изменений всего 2, а не как вметодичке
-
-# Проверим, что web-сервер работает:
-
-root@DESKTOP-9BHG4U3:/home/dima# curl http://192.168.1.70:8080
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+[root@localhost vagrant]# curl http://localhost:3000
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>TEST WEB SITE</title>
+</HEAD>
+<BODY>
+<h1>HELLO WORLD</h1>
+</BODY>
+</HTML>
+[root@localhost vagrant]# curl http://localhost:80
+<!DOCTYPE html>
 <html>
 <head>
-  <title>Welcome to CentOS</title>
-  <style rel="stylesheet" type="text/css">
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
 
-        html {
-        background-image:url(img/html-background.png);
-        background-color: white;
-        font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
-        font-size: 0.85em;
-        line-height: 1.25em;
-        margin: 0 4% 0 4%;
-        }
-# Целком вывод не приводил, скриншот с брайзера приложу в репозиторий
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+# Видим, что вывод из разных файлов. Т.е. каждый порт отдаёт свою страничку.
+
+# Теперь создадим 2 папки для логов и пробросим их в контейнер с помощью volume 
+# Их расположение на хосте:
+# /home/vagrant/docker_volume1 - папка, где будут храниться логи самих страничек.
+# она будет равна папке /var/log/nginx/ в контейнере (ПАПКА ПО УМОЛЧАНИЮ)
+# /home/vagrant/docker_volume2 - папка, где будут храниться логи контейнера 
+# Она будет равна /logs_container в самом контейнере
+# Для получения логов контейнера используем команду docker logs nginx - она будет выполняться скриптом
+# /home/vagrant/scripts/docker_logs_nginx.sh 
+
+#!/bin/bash
+docker logs nginx >> /home/vagrant/docker_volume2/logs_apps
+
+# Добавим исполнение данного скрипта каждый час через crond
+[root@localhost scripts]# crontab -e
+
+* */1 * * *  /home/vagrant/scripts/docker_logs_nginx.s
+
+# Тепер остановим и запустим контейнер заного, снова докинув файл конфигураций и вторую страничку html
+[root@localhost scripts]# docker stop nginx
+[root@localhost vagrant]# docker run -it -d --rm -v /home/vagrant/docker_volume2:/logs_container -v /home/vagrant/docker_volume1:/var/log/nginx/ -p 3000:3000 -p 80:80 --name nginx  nginx
+
+[root@localhost vagrant]# docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS
+                 NAMES
+2b6aa6b42d38        nginx               "/docker-entrypoin..."   17 seconds ago      Up 14 seconds       0.0.0.0:80->80/tcp, 0.0.0.0:3000->3000/tcp   nginx
+
+[root@localhost vagrant]# docker cp /home/vagrant/webserv/default.conf nginx:/etc/nginx/conf.d/default.conf
+[root@localhost vagrant]# docker cp /home/vagrant/webserv/srv.html nginx:/usr/share/nginx/html/srv.html
+
+[root@localhost vagrant]# docker exec -it nginx bash
+root@2b6aa6b42d38:/# nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+root@2b6aa6b42d38:/# nginx -s reload
+root@2b6aa6b42d38:/# exit
+
+[root@localhost vagrant]# curl http://localhost:80
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[root@localhost vagrant]# curl http://localhost:3000
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>TEST WEB SITE</title>
+#!/bin/bash
+</HEAD>
+<BODY>
+<h1>HELLO WORLD</h1>
+</BODY>
+</HTML>
+
+# Теперь выполним скрипт, и проверим наличие логов внутри контейнера, тоже самое сделаем и с volume1 на хостовой машине.
+# Проверим, пробросились ли на неё папки с контейнера
+
+[root@localhost vagrant]# cd docker_volume1
+[root@localhost docker_volume1]# ls
+access.log  error.log
+
+root@2b6aa6b42d38:/# ls /logs_container/
+logs_apps
+root@2b6aa6b42d38:/# cat logs_container/logs_apps 
+/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+# Здесь полный вывод не приводил
+
+# Теперь настроим всё через Dockerfile
+# Его вид будет таким:
+FROM nginx:latest # Указал последнюю версию nginx
+COPY default.conf /etc/nginx/conf.d/ # Скопировал из текущей директории файл конигурации nginx в контейнер
+ADD srv.html /usr/share/nginx/html/ # Скопировал из текущей директории файл со второй страничкой nginx в контейнер
+VOLUME /var/log/nginx/ /logs_container # Создал 2 VLUME для хранения данных и связки с ОС, они будут тут:
+# в хостовой ситеме они будут тут /var/lib/docker/volumes/
+EXPOSE 80 3000 # Указал необходимость открыть порты
+
+# Запустим сборку образа
+[root@localhost docker]# docker build -t web2 .
+Sending build context to Docker daemon 6.144 kB
+Step 1/5 : FROM nginx:latest
+ ---> 904b8cb13b93
+Step 2/5 : COPY default.conf /etc/nginx/conf.d/
+ ---> Using cache
+ ---> fe708ff5e6bb
+Step 3/5 : ADD srv.html /usr/share/nginx/html/
+ ---> Using cache
+ ---> c4e3674b1e69
+Step 4/5 : VOLUME /var/log/nginx/ /logs_container
+ ---> Running in e974ce7d8da8
+ ---> 44550ea03063
+Removing intermediate container e974ce7d8da8
+Step 5/5 : EXPOSE 80 3000
+ ---> Running in be197a781a34
+ ---> 43933fd0709d
+Removing intermediate container be197a781a34
+Successfully built 43933fd0709d
+
+# Запстим контейнер из данного образа
+[root@localhost docker]# docker run -it -d --rm -p 80:80 -p 3000:3000 --name web2  web2
+1c1a65f04d5ae22fc63854e43358c852c062f414a328127c5279c7a8858e8019
+
+# Проверим, что обе странички доступны
+[root@localhost docker]# curl http://localhost:80
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[root@localhost docker]# curl http://localhost:3000
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>TEST WEB SITE</title>
+</HEAD>
+<BODY>
+<h1>HELLO WORLD</h1>
+</BODY>
+</HTML>
+
+# Проверим появились ли они в системе:
+[root@localhost docker]# ls /var/lib/docker/volumes/
+1c00f37d3d09766a18f8517c0256877b8e94d1d2abe56b0c7a4d08ad71c9ac0c  metadata.db
+459cda6c4376a24f55ca758863c3ce4d285ea05b1b414758bf3a131acafbb279
+
+# Посмотрим какой из них уже подтянул логи страничек из контейнера
+[root@localhost docker]# ls /var/lib/docker/volumes/459cda6c4376a24f55ca758863c3ce4d285ea05b1b414758bf3a131acafbb279/_data/
+[root@localhost docker]# ls /var/lib/docker/volumes/1c00f37d3d09766a18f8517c0256877b8e94d1d2abe56b0c7a4d08ad71c9ac0c/_data/
+access.log  error.log
+# Это 1c00f37d3d09766a18f8517c0256877b8e94d1d2abe56b0c7a4d08ad71c9ac0c
+
+# Изменим скрипт, что бы он копировал логи приложения в 459cda6c4376a24f55ca758863c3ce4d285ea05b1b414758bf3a131acafbb279
+[root@localhost docker]# vi /home/vagrant/scripts/docker_logs_nginx.sh
+# Выполним сркипт и проверим появились ли логи
+[root@localhost docker]# ls /var/lib/docker/volumes/459cda6c4376a24f55ca758863c3ce4d285ea05b1b414758bf3a131acafbb279/_data/
+logs_apps
+# Логи появились
+
+<# Мы написали Dockerfile, который поднимает контейнер с 2-мя статичными страницами nginx (каждая на своём порту).
+Сделали 2 VOLUME для хранения логов. Реализовали это всё через Dockerfile. #>
+
+# Теперь создадим Vagrantfile, который будет поднимать VM, устанавливать docker, 
+# собирать образ nginx и поднимать контейнер.
+# В каталоге, где лежит наш Vagrntfile создадим директорию docker, она будет синхронизироваться с /mnt на VM.
+# box.vm.synced_folder "C:/git/MiFirstRepo/docker", "/mnt", type: "rsync"
+# Так же в этой же директории создадим скрипт, который будет производить всю настройку script.sh
+# Vagrantfile представлен в репозитории отдельным файлом
+
+# После развёртывания VM сразу сделаем curl
+PS C:\git\MiFirstRepo> vagrant ssh
+[vagrant@dockersrv ~]$ sudo su
+[root@dockersrv vagrant]# curl http://localhost:80
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[root@dockersrv vagrant]# curl http://localhost:3000
+<HTML>
+    <HEAD>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>TEST WEB SITE</title>
+    </HEAD>
+    <BODY>
+    <h1>HELLO WORLD</h1>
+    </BODY>
+    </HTML>
+
+  # Видим, что странички доступны
+
+  # Проверим наличие voliume
+    [root@dockersrv vagrant]# ls /var/lib/docker/volumes
+5d7fbaf0c1e3cb3dbe090fb2f6fd9d78a65446a93d8a1c4bacedbcfaa2346f5c  6bcb869fb04718754bc07b39e4ecea47483c4f4088e1ba43ba9f158f0bebdf56  metadata.db
+
+# И они есть.
+
+# Повторно создание скрипта для сбора логов приложения приводить не буду - оно описано выше.
