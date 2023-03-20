@@ -2,9 +2,9 @@
 # vim: set ft=ruby :
 
 MACHINES = {
-  :nginx => {
+  :dockersrv => {
         :box_name => "centos/7",
-        :ip_addr => '192.168.1.70'
+        :ip_addr => '192.168.1.100'
   }
 }
 
@@ -21,13 +21,11 @@ Vagrant.configure("2") do |config|
 
           box.vm.provider :virtualbox do |vb|
             vb.customize ["modifyvm", :id, "--memory", "200"]
+        
+          box.vm.synced_folder "C:/git/MiFirstRepo/docker", "/mnt", type: "rsync"
           end
           
-          box.vm.provision "shell", inline: <<-SHELL
-            mkdir -p ~root/.ssh; cp ~vagrant/.ssh/auth* ~root/.ssh
-            sed -i '65s/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-            systemctl restart sshd
-          SHELL
+          box.vm.provision "shell", path: "script.sh"
 
       end
   end
