@@ -34,7 +34,7 @@ PS C:\git\MiFirstRepo> vagrant ssh
 SELINUXTYPE=targeted
 [root@localhost docker]# setenforce 0
 
-# Хотя с проверял и с включенными - работает без доп. настроек
+# Хотя я проверял и с включенными - работает без доп. настроек
 
 # Установим docker
 [root@localhost vagrant]# yum install docker -y
