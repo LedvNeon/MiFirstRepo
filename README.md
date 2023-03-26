@@ -22,9 +22,9 @@ prometheus - grafana.
 #>
 
 # Выполнение:
-# Подними сервер Prometheus promsrv из Vagrantfile с public_network 192.168.1.25
+# Поднимим сервер Prometheus promsrv из Vagrantfile с public_network 192.168.1.25
 PS C:\git\MiFirstRepo> vagrant up
-# Подсключимся к серверу по ssh и обновим ОС, добавив нужные компоненты.
+# Подключимся к серверу по ssh и обновим ОС, добавив нужные компоненты.
 PS C:\git\MiFirstRepo> vagrant ssh
 [vagrant@promsrv ~]$ sudo su
 [root@promsrv vagrant]# yum install -y wget
@@ -168,7 +168,7 @@ static_configs:
 # Перезапустим сервис
 [root@promsrv node_exporter]# systemctl restart prometheus.service 
 
-# Проверим появился ли новый target в веб-интерфейсе - Status ― Targets - появился (скриншот приложен в ветке - Prometheus)
+# Проверим появился ли новый target в веб-интерфейсе - Status ― Targets - появился (скриншот приложен в ветке - Prometheus.jpg)
 
 # Установим grafana
 # Создадим директорию /home/vagrant/grafana и перейдём в неё
