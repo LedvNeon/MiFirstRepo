@@ -210,6 +210,7 @@ Redirecting start to /bin/systemctl start auditd.service
 (целиком вывод приводить не будут, что бы не захламлять файл)
 
 [root@web vagrant]# ausearch -f /etc/nginx/nginx.conf
+
 ----
 time->Sun Apr  9 17:15:55 2023
 type=CONFIG_CHANGE msg=audit(1681049755.073:149): auid=1000 ses=2 op=updated_rules path="/etc/nginx/nginx.conf" key="nginx_conf" list=4 res=1     
