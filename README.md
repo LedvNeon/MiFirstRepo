@@ -129,7 +129,7 @@ input(type="imudp" port="514")
 module(load="imtcp")
 input(type="imtcp" port="514")
 В конец файла /etc/rsyslog.conf добавляем правила приёма сообщений от хостов (тут важно не накосячить с пробелами и запятыми):
-# Add remote logs
+#Add remote logs
 $template RemoteLogs, "/var/log/rsyslog/%HOSTNAME%/%PROGRAMNAME%.log"
 *.* ?RemoteLogs
 & ~
@@ -250,4 +250,24 @@ node=web type=DAEMON_START msg=audit(1681050087.511:9187): op=start ver=2.8.5 fo
 В моём распоряжении win-пк, поэтому ansible работает из wsl (настраивал для лабы по selinux - https://github.com/LedvNeon/MiFirstRepo/tree/selinux)
 ## Как это будет работать:
 Я заранее подготовлю файлы конфигураций, что бы заменить их на хостах по средствам ansible.
-Так же ansible установит все необходимые утилиты для работы
+Так же ansible установит все необходимые утилиты для работы.
+Файлы конфигураций положим сюда \\wsl$\Ubuntu-20.04\home\dima\lab_for_logs  (в папки web и щп), а .vagrant (с информацией об образе, публичных ключах и пр. положим в \\wsl$\Ubuntu-20.04\home\dima).
+
+ФАЙЛЫ, ПРИЛОЖЕННЫЕ В РЕПОЗИТОРИЙ НУЖНО СКАЧАТЬ И РАЗЛОЖИТЬ ПО ТАКИМ ЖЕ ДИРЕКТОРИЯМ
+Просьба посомтреть, что не так с playbook - по отдельности (если делать разные playbook из кусков)
+они отрабатывают. Когда внутри одного файла постоянно ругается на различные строки, как будто там ошибка 
+в синтаксисе (хотя tab не использовал, файл делал в VSCode, что бы была разметка). Пример из приложенного Playbook:
+ERROR! Syntax Error while loading YAML.
+  did not find expected key
+
+The error appears to be in '/home/dima/playbook.yml': line 27, column 5, but may
+be elsewhere in the file depending on the exact syntax problem.
+
+The offending line appears to be:
+
+
+    - name: NGINX | Install NGINX package from EPEL Repo
+    ^ here
+
+
+
