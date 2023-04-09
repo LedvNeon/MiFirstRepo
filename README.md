@@ -1,201 +1,253 @@
-<#
-Задание:
-Настроить дашборд с 4-мя графиками
-
-память;
-процессор;
-диск;
-сеть.
-Настроить на одной из систем:
-zabbix (использовать screen (комплексный экран);
-prometheus - grafana.
-Использование систем, примеры которых не рассматривались на занятии*
-Список возможных систем был приведен в презентации.
-В качестве результата прислать скриншот экрана - дашборд должен содержать в названии имя приславшего.
-В чат ДЗ отправьте ссылку на ваш git-репозиторий. Обычно мы проверяем ДЗ в течение 48 часов.
+# Задание:
+1) в вагранте поднимаем 2 машины web и log
+2) на web поднимаем nginx
+3) на log настраиваем центральный лог сервер на любой системе на выбор
+-journald;
+-rsyslog;
+-elk.
+4) настраиваем аудит, следящий за изменением конфигов нжинкса
+Все критичные логи с web должны собираться и локально и удаленно.
+Все логи с nginx должны уходить на удаленный сервер (локально только критичные).
+Логи аудита должны также уходить на удаленную систему.
+Формат сдачи ДЗ - vagrant + ansible
+развернуть еще машину elk*
+-таким образом настроить 2 центральных лог системы elk и какую либо еще;
+-в elk должны уходить только логи нжинкса;
+- во вторую систему все остальное.
+В чат ДЗ отправьте ссылку на ваш git-репозиторий . Обычно мы проверяем ДЗ в течение 48 часов.
 Если возникнут вопросы, обращайтесь к студентам, преподавателям и наставникам в канал группы в Slack.
 Удачи при выполнении!
 
-Критерии оценки:
-Статус "Принято" ставится при выполнении основного задания.
+# Критерии оценки:
+Статус "Принято" ставится, если присылаете логи скриншоты без вагранта.
 Задание со звездочкой выполняется по желанию.
-#>
 
-# Выполнение:
-# Поднимим сервер Prometheus promsrv из Vagrantfile с public_network 192.168.1.25
-PS C:\git\MiFirstRepo> vagrant up
-# Подключимся к серверу по ssh и обновим ОС, добавив нужные компоненты.
-PS C:\git\MiFirstRepo> vagrant ssh
-[vagrant@promsrv ~]$ sudo su
-[root@promsrv vagrant]# yum install -y wget
-[root@promsrv vagrant]# yum install -y epel-release
-# Вывод не привожу, т.к. он большой
-# Создадим директорию, куда будем скачивать дистрибутив Prometheus
-[root@promsrv vagrant]# pwd
-/home/vagrant
-[root@promsrv vagrant]# mkdir Prometheus
-[root@promsrv vagrant]# ls -la
-total 12
-drwx------. 4 vagrant vagrant  92 Mar 26 10:22 .
-drwxr-xr-x. 3 root    root     21 Apr 30  2020 ..
--rw-r--r--. 1 vagrant vagrant  18 Apr  1  2020 .bash_logout
--rw-r--r--. 1 vagrant vagrant 193 Apr  1  2020 .bash_profile
--rw-r--r--. 1 vagrant vagrant 231 Apr  1  2020 .bashrc
-drwxr-xr-x. 2 root    root      6 Mar 26 10:22 Prometheus
-drwx------. 2 vagrant vagrant  29 Mar 26 10:14 .ssh
+# Решение:
+Поднимим 2 виртульаные машины из Vagrantfile "web" (web - сервер) и "log" (сервер, где будем хранить логи).
+C:\git\MiFirstRepo> vagrant up
 
-# Перейдём в директорию Prometheus, скачаем (с офф сайта) и распакуем дистрибутив
-[root@promsrv vagrant]# cd Prometheus/
-[root@promsrv Prometheus]# wget https://github.com/prometheus/prometheus/releases/download/v2.43.0/prometheus-2.43.0.linux-amd64.tar.gz
-[root@promsrv Prometheus]# ls
-prometheus-2.43.0.linux-amd64.tar.gz
-[root@promsrv Prometheus]# tar -xvzf prometheus-2.43.0.linux-amd64.tar.gz 
-# -x - распаковать
-# -v - в подробном режиме
-# -z – обработка архива с помощью gzip
-# -f - следующая строка, это файл, с которым надо работать
-# вывод не привожу, результат в следующей строке
-[root@promsrv Prometheus]# ls
-prometheus-2.43.0.linux-amd64  prometheus-2.43.0.linux-amd64.tar.gz
-[root@promsrv Prometheus]# cd prometheus-2.43.0.linux-amd64/
-[root@promsrv prometheus-2.43.0.linux-amd64]# ls
-console_libraries  consoles  LICENSE  NOTICE  prometheus  prometheus.yml  promtool
+## Настройка даты и времени на серверах
+Подключимся к web-серверу, перейдём в режим суперпользователя и укажим время по Москве.
+Аналjuично сделаем и для log - сервера.
+Настройку приведу только для web, т.к. они идентичны
+C:\git\MiFirstRepo> vagrant ssh web
+[vagrant@web ~]$ sudo su
+[root@web vagrant]# 
+[root@web vagrant]# cp /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+cp: overwrite ‘/etc/localtime’? y
+[root@web vagrant]# systemctl restart chronyd
+[root@web vagrant]# systemctl status chronyd
+● chronyd.service - NTP client/server
+   Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled; vendor preset: enabled)
+   Active: active (running) since Sun 2023-04-09 13:26:57 MSK; 5s ago
+     Docs: man:chronyd(8)
+           man:chrony.conf(5)
+  Process: 3290 ExecStartPost=/usr/libexec/chrony-helper update-daemon (code=exited, status=0/SUCCESS)
+  Process: 3286 ExecStart=/usr/sbin/chronyd $OPTIONS (code=exited, status=0/SUCCESS)
+ Main PID: 3288 (chronyd)
+   CGroup: /system.slice/chronyd.service
+           └─3288 /usr/sbin/chronyd
 
-# cкопируем исполняемые файлы в /usr/local/bin/
-[root@promsrv prometheus-2.43.0.linux-amd64]# cp prometheus /usr/local/bin/
-[root@promsrv prometheus-2.43.0.linux-amd64]# cp promtool /usr/local/bin/
+Apr 09 13:26:57 web systemd[1]: Starting NTP client/server...
+Apr 09 13:26:57 web chronyd[3288]: chronyd version 3.4 starting (+CMDMON +NTP +REFCLOCK +RTC +PRIVDROP +SCFILTER +SIGND +ASYNCDNS +SEC...6 +DEBUG)Apr 09 13:26:57 web chronyd[3288]: Frequency -7.086 +/- 4.848 ppm read from /var/lib/chrony/drift
+Apr 09 13:26:57 web systemd[1]: Started NTP client/server.
+Hint: Some lines were ellipsized, use -l to show in full.
+[root@web vagrant]# date
+Sun Apr  9 13:29:04 MSK 2023
 
-# Создадим папку для файлов конфигурации и скопируем в неё конфиги
-[root@promsrv prometheus-2.43.0.linux-amd64]# mkdir /etc/prometheus
-[root@promsrv prometheus-2.43.0.linux-amd64]# cp -r consoles/ /etc/prometheus/consoles/
-[root@promsrv prometheus-2.43.0.linux-amd64]# cp -r console_libraries/ /etc/prometheus/console_libraries/
-[root@promsrv prometheus-2.43.0.linux-amd64]# cp prometheus.yml /etc/prometheus/
+## Установка nginx на web-сервере
+[root@web vagrant]# yum install -y epel-release
+[root@web vagrant]# yum install -y nginx
 
-# Создадим папку для хранения данных
-mkdir /var/lib/prometheus
+ПРоцесс загрузки и установления репозитория не привожу, что бы не захламлять данный файл
 
-# Создадим пользователя (без возможности входа в консоль) и назначим владельца файлов и папок:
-# useradd - добавить пользователя
-# -M - не создавать домашний каталог
-# -r - системная учетная запись (без домашнего каталога и с идентификаторами в диапазоне SYS_UID_MIN - SYS_UID_MAX из файла /etc/login.defs)
-# -s - путь до оболочки командной строки
-# /sbin/nologin - без возможности входа в консоль
-[root@promsrv prometheus-2.43.0.linux-amd64]# useradd -M -r -s /bin/nologin prometheus
-[root@promsrv prometheus-2.43.0.linux-amd64]# chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+[root@web vagrant]# systemctl start nginx
+[root@web vagrant]# systemctl status nginx
+● nginx.service - The nginx HTTP and reverse proxy server
+   Loaded: loaded (/usr/lib/systemd/system/nginx.service; disabled; vendor preset: disabled)
+   Active: active (running) since Sun 2023-04-09 13:34:24 MSK; 3s ago
+  Process: 3474 ExecStart=/usr/sbin/nginx (code=exited, status=0/SUCCESS)
+  Process: 3472 ExecStartPre=/usr/sbin/nginx -t (code=exited, status=0/SUCCESS)
+  Process: 3471 ExecStartPre=/usr/bin/rm -f /run/nginx.pid (code=exited, status=0/SUCCESS)
+ Main PID: 3476 (nginx)
+   CGroup: /system.slice/nginx.service
+           ├─3476 nginx: master process /usr/sbin/nginx
+           └─3477 nginx: worker process
 
-# Создадим systemd-юнит, чтобы удобнее управлять сервисом:
-[root@promsrv prometheus-2.43.0.linux-amd64]# vi /etc/systemd/system/prometheus.service
-[root@promsrv prometheus-2.43.0.linux-amd64]# cat /etc/systemd/system/prometheus.service
-[Unit]
-Description=Prometheus systemd service unit
-Wants=network-online.target
-After=network-online.target
+Apr 09 13:34:24 web systemd[1]: Starting The nginx HTTP and reverse proxy server...
+Apr 09 13:34:24 web nginx[3472]: nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+Apr 09 13:34:24 web nginx[3472]: nginx: configuration file /etc/nginx/nginx.conf test is successful
+Apr 09 13:34:24 web systemd[1]: Started The nginx HTTP and reverse proxy server.
 
-[Service]
-Type=simple
-User=prometheus
-Group=prometheus
-ExecReload=/bin/kill -HUP $MAINPID
-ExecStart=/usr/local/bin/prometheus \
---config.file=/etc/prometheus/prometheus.yml \
---storage.tsdb.path=/var/lib/prometheus \
---web.console.templates=/etc/prometheus/consoles \
---web.console.libraries=/etc/prometheus/console_libraries \
---web.listen-address=0.0.0.0:9090
+Проверим, что сервер работает корреткно через curl (целиком вывод не привожу, тчо бы не захламлять файл)
 
-SyslogIdentifier=prometheus
-Restart=always
+[root@web vagrant]# curl http://192.168.1.30:80
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <title>Welcome to CentOS</title>
+  <style rel="stylesheet" type="text/css">
 
-[Install]
-WantedBy=multi-user.target
+## Настройка центрального сервера по сбору логов
+Подключимся по ssh к log и перейдём в режим супервользователя (дату/время настроили ранее - см. комментарии выше)
+PS C:\git\MiFirstRepo> vagrant ssh log
+[vagrant@log ~]$ sudo su
 
-# Обновим список юнитов
-[root@promsrv prometheus-2.43.0.linux-amd64]# systemctl daemon-reload
+Проверим установлен ли сервис управления логами Rsyslog
+[root@log vagrant]# yum list rsyslog
+Loaded plugins: fastestmirror
+Determining fastest mirrors
+ * base: mirror.corbina.net
+ * extras: centos-mirror.rbc.ru
+ * updates: centos-mirror.rbc.ru
+base                                                                                                                       | 3.6 kB  00:00:00     
+extras                                                                                                                     | 2.9 kB  00:00:00     
+updates                                                                                                                    | 2.9 kB  00:00:00     
+(1/4): base/7/x86_64/group_gz                                                                                              | 153 kB  00:00:00     
+(2/4): extras/7/x86_64/primary_db                                                                                          | 249 kB  00:00:01     
+(3/4): base/7/x86_64/primary_db                                                                                            | 6.1 MB  00:00:03     
+(4/4): updates/7/x86_64/primary_db                                                                                         |  20 MB  00:00:08     
+Installed Packages
+rsyslog.x86_64                                                     8.24.0-52.el7                                                         @anacondaAvailable Packages
+rsyslog.x86_64                                                     8.24.0-57.el7_9.3                                                     updates
 
-# Запустим Prometheus
-[root@promsrv prometheus-2.43.0.linux-amd64]# systemctl start prometheus.service
-[root@promsrv prometheus-2.43.0.linux-amd64]# systemctl enable prometheus.service
-Created symlink from /etc/systemd/system/multi-user.target.wants/prometheus.service to /etc/systemd/system/prometheus.service.
+Все настройки Rsyslog хранятся в файле /etc/rsyslog.conf
+Для того, чтобы наш сервер мог принимать логи, нам необходимо внести следующие изменения в файл: 
 
-# Теперь сервер Prometheus доступен по адресу 192.168.1.25:9090
+[root@log vagrant]# vi /etc/rsyslog.conf
 
-# Теперь нам нужно установить node_exporter, для сбора данных. Установим на этот же сервер в качестве теста. 
-# Предварительно создадим каталог /home/vagrant/Prometheus/node_exporter
-[root@promsrv node_exporter]# wget https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz
-[root@promsrv node_exporter]# tar -xvzf node_exporter-1.5.0.linux-amd64.tar.gz
-[root@promsrv node_exporter]# pwd
-/home/vagrant/Prometheus/node_exporter
-[root@promsrv node_exporter]# ls
-node_exporter-1.5.0.linux-amd64  node_exporter-1.5.0.linux-amd64.tar.gz
+Открываем порт 514 (TCP и UDP): 
+Находим закомментированные строки:
+#Provides UDP syslog reception
+#$ModLoad imudp
+#$UDPServerRun 514
 
-# Скопируем бинарный файл в директорию /usr/local/bin/
-[root@promsrv node_exporter]# cp -r node_exporter-1.5.0.linux-amd64/node_exporter /usr/local/bin/
-[root@promsrv node_exporter]# ls /usr/local/bin/
-node_exporter-1.5.0.linux-amd64  prometheus  promtool
+И приводим их к виду:
+module(load="imudp")
+input(type="imudp" port="514")
 
-# Созадим пользователя для node_exporter по аналогии с пользователем prometheus
-[root@promsrv node_exporter]# useradd -M -r -s /bin/nologin node_exporter 
+module(load="imtcp")
+input(type="imtcp" port="514")
+В конец файла /etc/rsyslog.conf добавляем правила приёма сообщений от хостов (тут важно не накосячить с пробелами и запятыми):
+# Add remote logs
+$template RemoteLogs, "/var/log/rsyslog/%HOSTNAME%/%PROGRAMNAME%.log"
+*.* ?RemoteLogs
+& ~
 
-# Создадим юнит для экспортера
-[root@promsrv node_exporter]# vi /etc/systemd/system/node_exporter.service
-[root@promsrv node_exporter]# cat /etc/systemd/system/node_exporter.service
-[Unit]
-Description=Node Exporter
-Wants=network-online.target
-After=network-online.target
+В данном примере мы создаем шаблон с названием RemoteLogs, который принимает логи всех категорий, любого уровня; логи, полученный по данному шаблону будут сохраняться в каталоге по маске /var/log/rsyslog/<имя компьютера, откуда пришел лог>/<приложение, чей лог пришел>.log; конструкция & ~ говорит о том, что после получения лога, необходимо остановить дальнейшую его обработку.
 
-[Service]
-User=node_exporter
-Group=node_exporter
-ExecStart=/usr/local/bin/node_exporter
+Данные параметры будут отправлять в папку /var/log/rsyslog логи, которые будут приходить от других серверов. Например, Access-логи nginx от сервера web, будут идти в файл /var/log/rsyslog/web/nginx_access.log
 
-[Install]
-WantedBy=default.target
+Перезапустим службу управления логами
+[root@log vagrant]# systemctl restart rsyslog
 
-# Обновим список юнитов, включим экспортер и добавим его в автозагрузку
-[root@promsrv node_exporter]# systemctl daemon-reload
-[root@promsrv node_exporter]# systemctl start node_exporter.service
-[root@promsrv node_exporter]# systemctl enable node_exporter.service
-Created symlink from /etc/systemd/system/default.target.wants/node_exporter.service to /etc/systemd/system/node_exporter.service.
+Проверим открыт ли у нас 514 порт с помощью утилиты ss
+[root@log vagrant]# ss -tuln | grep 514
+udp    UNCONN     0      0         *:514                   *:*
+udp    UNCONN     0      0      [::]:514                [::]:*
+tcp    LISTEN     0      25        *:514                   *:*
+tcp    LISTEN     0      25     [::]:514                [::]:*
 
-#  Внесём изменения в /etc/prometheus/prometheus.yml для сбора данных с экспортера
-static_configs:
-    - targets: ['localhost:9090']
-  - job_name: 'node_localhost'
-    static_configs:
-    - targets: ['localhost:9100']
+## Настроим отправку логов с web-сервера
 
-# Перезапустим сервис
-[root@promsrv node_exporter]# systemctl restart prometheus.service 
+vagrant ssh web
+sudo su
 
-# Проверим появился ли новый target в веб-интерфейсе - Status ― Targets - появился (скриншот приложен в ветке - Prometheus.jpg)
+Проверяем версию nginx
+[root@web vagrant]# rpm -qa | grep nginx
+nginx-filesystem-1.20.1-10.el7.noarch
+nginx-1.20.1-10.el7.x86_64
 
-# Установим grafana
-# Создадим директорию /home/vagrant/grafana и перейдём в неё
-[root@promsrv vagrant]# mkdir grafana
-[root@promsrv vagrant]# ls
-grafana  Prometheus
-[root@promsrv vagrant]# cd grafana/
-[root@promsrv grafana]# wget https://dl.grafana.com/oss/release/grafana-9.4.7-1.x86_64.rpm
-[root@promsrv grafana]# yum localinstall -y grafana-9.4.7-1.x86_64.rpm
-[root@promsrv grafana]# systemctl start grafana-server.service
-[root@promsrv grafana]# systemctl status grafana-server.service
-● grafana-server.service - Grafana instance
-   Loaded: loaded (/usr/lib/systemd/system/grafana-server.service; disabled; vendor preset: disabled)
-   Active: active (running) since Sun 2023-03-26 17:25:50 UTC; 6min ago
-     Docs: http://docs.grafana.org
- Main PID: 1142 (grafana)
-   CGroup: /system.slice/grafana-server.service
-           └─1142 /usr/share/grafana/bin/grafana server --config=/etc/grafana/grafana.ini --pidfile=/var/run/grafana/grafana-server.pid --packa...
+Версия старше 1.7 - удавлетворяет требованиям (т.к. только с этой версии у nginx появилась возможность
+самостоятельно отправлять логи на сервер)
 
- [root@promsrv grafana]# systemctl enable grafana-server.service
-Created symlink from /etc/systemd/system/multi-user.target.wants/grafana-server.service to /usr/lib/systemd/system/grafana-server.service.   
+Находим в файле /etc/nginx/nginx.conf раздел с логами и приводим их к следующему виду (error_log и access_log
+разные разделы файла конфигурации!!!):
+error_log /var/log/nginx/error.log; 
+error_log syslog:server=192.168.1.35:514,tag=nginx_error ;
+access_log syslog:server=192.168.1.35:514,tag=nginx_access,severity=info combined ;
+Tag нужен для того, чтобы логи записывались в разные файлы
+
+[root@web vagrant]# vi /etc/nginx/nginx.conf
+
+Проверим конфигурацию nginx после изменений
+[root@web vagrant]# nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+Перезапустим nginx
+[root@web vagrant]# systemctl restart nginx
+
+Попробуем несколько раз зайти по адресу http://192.168.50.10 (сделаю это из хостовой машины через браузер)
+Далее заходим на log-сервер и смотрим информацию об nginx:
+(Если предварительно сэмитрировать ошибку на стороне nginx, то появится ещё и nginx_error.log)
+[root@log vagrant]# cat /var/log/rsyslog/web/nginx_access.log 
+Apr  9 16:37:43 web nginx_access: 192.168.1.65 - - [09/Apr/2023:16:37:43 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
+Apr  9 16:37:44 web nginx_access: 192.168.1.65 - - [09/Apr/2023:16:37:44 +0300] "GET / HTTP/1.1" 304 0 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
+
+## Настройка аудита, контролирующего изменения конфигурации nginx
+Проверим наличие утилиты для аудита
+[root@web vagrant]# rpm -qa | grep audit
+audit-2.8.5-4.el7.x86_64
+audit-libs-2.8.5-4.el7.x86_64
+
+Настроим аудит изменения конфигурации nginx через файл /etc/audit/rules.d/audit.rules
+Добавим туда:
+-w /etc/nginx/nginx.conf -p wa -k nginx_conf
+-w /etc/nginx/default.d/ -p wa -k nginx_conf
+Данные правила позволяют контролировать запись (w) и измения атрибутов (a) в:
+/etc/nginx/nginx.conf
+Всех файлов каталога /etc/nginx/default.d/
+Для более удобного поиска к событиям добавляется метка nginx_conf
+
+Перезапускаем службу auditd
+[root@web vagrant]# service auditd restart
+Stopping logging:                                          [  OK  ]
+Redirecting start to /bin/systemctl start auditd.service
+
+После данных изменений у нас начнут локально записываться логи аудита. Чтобы проверить, что логи аудита начали записываться локально, нужно внести изменения в файл /etc/nginx/nginx.conf или поменять его атрибут, потом посмотреть информацию об изменениях:
+Также можно воспользоваться поиском по файлу /var/log/audit/audit.log, указав наш тэг: grep nginx_conf /var/log/audit/audit.log
+(целиком вывод приводить не будут, что бы не захламлять файл)
+[root@web vagrant]# ausearch -f /etc/nginx/nginx.conf
+----
+time->Sun Apr  9 17:15:55 2023
+type=CONFIG_CHANGE msg=audit(1681049755.073:149): auid=1000 ses=2 op=updated_rules path="/etc/nginx/nginx.conf" key="nginx_conf" list=4 res=1     
+----
+time->Sun Apr  9 17:15:55 2023
+type=PROCTITLE msg=audit(1681049755.073:150): proctitle=7669002F6574632F6E67696E782F6E67696E782E636F6E66
+type=PATH msg=audit(1681049755.073:150): item=3 name="/etc/nginx/nginx.conf~" inode=13224 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=CREATE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
 
 
-# Проверим доступность grafana на 192.168.1.25 на порту 3000 (скриншот приложен в репозиторий с настроенным dashbard - Grafana Dashboard.jpg)
-# Пароль оставим по умолчанию admin/admin (т.к. система тестовая)
-# Подключим prometheus через веб-интерфейс через data source и создадим нужный dashboard (скрин будет приложен в ветке - Grafana Dashboard.jpg)
+Далее настроим пересылку логов на удаленный сервер. Auditd по умолчанию не умеет пересылать логи, для пересылки на web-сервере потребуется установить пакет audispd-plugins:
+[root@web vagrant]# yum -y install audispd-plugins
+
+Найдем и поменяем следующие строки в файле /etc/audit/auditd.conf:
+log_format = RAW
+name_format = HOSTNAME
+В файле /etc/audisp/plugins.d/au-remote.conf поменяем параметр active на yes
+В файле /etc/audisp/audisp-remote.conf требуется указать адрес сервера и порт, на который будут отправляться логи
+[root@web vagrant]# vi /etc/audit/auditd.conf
+[root@web vagrant]# vi /etc/audisp/plugins.d/au-remote.conf
+[root@web vagrant]# vi /etc/audisp/audisp-remote.conf
+
+Перезапустим auditd
+[root@web vagrant]# service auditd restart
+Stopping logging:                                          [  OK  ]
+Redirecting start to /bin/systemctl start auditd.service
+
+## Настройка на сервере логов
+Первым делом откроем 60 порт через файлик /etc/audit/auditd.conf и перезапустим службу аудита
+[root@log vagrant]#  service auditd restart
+Stopping logging:                                          [  OK  ]
+Redirecting start to /bin/systemctl start auditd.service
+
+Настройка закончина, поменяем что то в файле конфига nginx и проверим логи на лог-сервере (вывод неполный)
+[root@log vagrant]# cat /var/log/audit/audit.log | grep web
+node=web type=DAEMON_START msg=audit(1681050087.511:9187): op=start ver=2.8.5 format=raw kernel=3.10.0-1127.el7.x86_64 auid=4294967295 pid=1817 uid=0 ses=4294967295 subj=system_u:system_r:auditd_t:s0 res=success
 
 
-
-
+# РЕАЛИЗУЕМ ЭТО ЧЕРЕЗ ANSIBLE
+В моём распоряжении win-пк, поэтому ansible работает из wsl (настраивал для лабы по selinux - https://github.com/LedvNeon/MiFirstRepo/tree/selinux)
+## Как это будет работать:
+Я заранее подготовлю файлы конфигураций, что бы заменить их на хостах по средствам ansible.
+Так же ansible установит все необходимые утилиты для работы
