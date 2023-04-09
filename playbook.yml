@@ -1,0 +1,127 @@
+---
+  - name: copy rsyslog.conf on log
+    hosts: log
+    become: true
+    tasks: 
+    - name: copy rsyslog.conf
+      copy: 
+          src: '/home/dima/lab_for_logs/log/rsyslog.conf'
+          dest: '/etc/'
+    - name: restart rsyslog on log
+      command: systemctl restart rsyslog
+    tags: 
+          - rsyslog.conf
+   
+  - name: NGINX | Install and configure NGINX
+    hosts: web
+    become: true
+    tasks:
+    - name: NGINX | Install EPEL Repo package from standart repo
+      yum:
+        name: epel-release
+        state: present
+    tags:
+        - epel-package
+        - packages
+
+    - name: NGINX | Install NGINX package from EPEL Repo
+      yum:
+        name: nginx
+        state: latest
+      notify:
+        - restart nginx
+      tags:
+          - nginx-package
+          - packages
+    
+  - name: copy timezone
+    hosts: all
+    become: true
+    tasks: 
+    - name: copy timezone
+      copy:
+        src: '/usr/share/zoneinfo/Europe/Moscow'
+        dest: '/etc/localtime'
+    tags:
+          - timezone
+       
+  - name: copy files on web
+    hosts: web
+    become: true
+    tasks:
+    - name: copy nginx.conf on web
+      copy:
+        src: '/home/dima/lab_for_logs/web/nginx.conf'
+        dest: '/etc/nginx/'
+    - name: restart nginx
+      command: systemctl restart nginx
+    tags: 
+          - nginx.conf
+   
+  - name: install audispd-plugins
+    hosts: web   
+    become: true
+    tasks:
+      - name: install audispd-plugins
+        yum:
+        name: audispd-plugins
+        state: latest
+    tags:
+          - audispd-plugins
+     
+  - name: copy audisp-remote.conf on web
+    hosts: web
+    become: true
+    tasks:
+    - name: copy audisp-remote.conf on web
+      copy:
+      src: '/home/dima/lab_for_logs/web/audisp-remote.conf'
+      dest: '/etc/audisp/'
+    - name: service auditd restart
+      command: service auditd restart
+     
+  - name: copy audit.rules on web
+    hosts: web
+    become: true
+    tasks:
+      - name: copy audit.rules on web
+        copy:
+        src: '/home/dima/lab_for_logs/web/audit.rules'
+        dest: '/etc/audit/rules.d/'
+      - name: auditd restart
+        command: service auditd restart
+   
+  - name: copy auditd.conf on web
+    hosts: web
+    become: true
+    tasks:
+      - name: copy auditd.conf on web
+        copy:
+        src: '/home/dima/lab_for_logs/web/auditd.conf'
+        dest: '/etc/audit/'
+      - name: service auditd restart
+        command: service auditd restart
+    tags: 
+              - auditd.conf
+   
+  - name: copy au-remote.conf
+    hosts: web
+    become: true
+    tasks:
+      - name: copy au-remote.conf
+        copy:
+        src: '/home/dima/lab_for_logs/web/au-remote.conf'
+        dest: '/etc/audisp/plugins.d/'
+      - name: service auditd restart
+        command: service auditd restart
+   
+  - name: copy auditd.conf on log
+    hosts: log
+    become: true
+    tasks: 
+      - name: copy auditd.conf on log
+        copy: 
+        src: '/home/dima/lab_for_logs/log/auditd.conf'
+        dest: '/etc/audit/'
+      - name: service auditd restart
+        command: service auditd restart
