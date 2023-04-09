@@ -1,34 +1,28 @@
 # -*- mode: ruby -*-
-# vim: set ft=ruby :
-
-MACHINES = {
-  :promsrv => {
-        :box_name => "centos/7",
-        :ip_addr => '192.168.1.25'
-  }
-}
+# vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-
-  MACHINES.each do |boxname, boxconfig|
-
-      config.vm.define boxname do |box|
-
-          box.vm.box = boxconfig[:box_name]
-          box.vm.host_name = boxname.to_s
-
-          box.vm.network "public_network", ip: boxconfig[:ip_addr]
-
-          box.vm.provider :virtualbox do |vb|
-            vb.customize ["modifyvm", :id, "--memory", "200"]
-          end
-          
-          box.vm.provision "shell", inline: <<-SHELL
-            mkdir -p ~root/.ssh; cp ~vagrant/.ssh/auth* ~root/.ssh
-            sed -i '65s/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-            systemctl restart sshd
-          SHELL
-
-      end
-  end
-end
+    # Base VM OS configuration.
+    config.vm.box = "centos/7"
+    config.vm.box_version = "2004.01"
+    config.vm.provider :virtualbox do |v|
+    v.memory = 512
+    v.cpus = 1
+    end
+    # Define two VMs with static private IP addresses.
+    boxes = [
+    { :name => "web",
+    :ip => "192.168.1.30" ,
+    },
+    { :name => "log",
+    :ip => "192.168.1.35" ,
+    }
+    ]
+    # Provision each of the VMs.
+    boxes.each do |opts|
+    config.vm.define opts [:name] do |config|
+    config .vm.hostname = opts[:name]
+    config .vm.network "public_network" , ip: opts[:ip]
+    end
+    end
+   end
