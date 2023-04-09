@@ -208,6 +208,7 @@ Redirecting start to /bin/systemctl start auditd.service
 После данных изменений у нас начнут локально записываться логи аудита. Чтобы проверить, что логи аудита начали записываться локально, нужно внести изменения в файл /etc/nginx/nginx.conf или поменять его атрибут, потом посмотреть информацию об изменениях:
 Также можно воспользоваться поиском по файлу /var/log/audit/audit.log, указав наш тэг: grep nginx_conf /var/log/audit/audit.log
 (целиком вывод приводить не будут, что бы не захламлять файл)
+
 [root@web vagrant]# ausearch -f /etc/nginx/nginx.conf
 ----
 time->Sun Apr  9 17:15:55 2023
