@@ -211,10 +211,6 @@ Redirecting start to /bin/systemctl start auditd.service
 
 [root@web vagrant]# ausearch -f /etc/nginx/nginx.conf
 
-----
-time->Sun Apr  9 17:15:55 2023
-type=CONFIG_CHANGE msg=audit(1681049755.073:149): auid=1000 ses=2 op=updated_rules path="/etc/nginx/nginx.conf" key="nginx_conf" list=4 res=1     
-----
 time->Sun Apr  9 17:15:55 2023
 type=PROCTITLE msg=audit(1681049755.073:150): proctitle=7669002F6574632F6E67696E782F6E67696E782E636F6E66
 type=PATH msg=audit(1681049755.073:150): item=3 name="/etc/nginx/nginx.conf~" inode=13224 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 obj=system_u:object_r:httpd_config_t:s0 objtype=CREATE cap_fp=0000000000000000 cap_fi=0000000000000000 cap_fe=0 cap_fver=0
