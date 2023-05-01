@@ -59,23 +59,24 @@ Alias /centos7 /iso
 [root@pxeserver vagrant]# vi /etc/httpd/conf.d/pxeboot.conf
 
 Так же вручную был создан vi /var/lib/tftpboot/pxelinux.cfg/default
+
 default menu.c32
 prompt 0
-###Время счётчика с обратным отсчётом (установлено 15 секунд)
+#Время счётчика с обратным отсчётом (установлено 15 секунд)
 timeout 150
-###Параметр использования локального времени
+#Параметр использования локального времени
 ONTIME local
-###Имя «шапки» нашего меню
+#Имя «шапки» нашего меню
 menu title OTUS PXE Boot Menu
-       ###Описание первой строки
+       #Описание первой строки
        label 1
-       ###Имя, отображаемое в первой строке
+       #Имя, отображаемое в первой строке
        menu label ^ Graph install CentOS 8.4
-       ###Адрес ядра, расположенного на TFTP-сервере
+       #Адрес ядра, расположенного на TFTP-сервере
        kernel /vmlinuz
-       ###Адрес файла initrd, расположенного на TFTP-сервере
+       #Адрес файла initrd, расположенного на TFTP-сервере
        initrd /initrd.img
-       ###Получаем адрес по DHCP и указываем адрес веб-сервера
+       #Получаем адрес по DHCP и указываем адрес веб-сервера
        append ip=enp0s3:dhcp inst.repo=http://10.0.0.20/centos8
        label 2
        menu label ^ Text install CentOS 8.4
@@ -97,18 +98,18 @@ option pxelinux.pathprefix code 210 = text;
 option pxelinux.reboottime code 211 = unsigned integer 32;
 option architecture-type code 93 = unsigned integer 16;
 
-###Указываем сеть и маску подсети, в которой будет работать DHCP-сервер
+#Указываем сеть и маску подсети, в которой будет работать DHCP-сервер
 subnet 10.0.0.0 netmask 255.255.255.0 {
-        ###Указываем шлюз по умолчанию, если потребуется
-        ###option routers 10.0.0.1;
-        ###Указываем диапазон адресов
+        #Указываем шлюз по умолчанию, если потребуется
+        #option routers 10.0.0.1;
+        #Указываем диапазон адресов
         range 10.0.0.100 10.0.0.120;
 
         class "pxeclients" {
           match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
-          ###Указываем адрес TFTP-сервера
+          #Указываем адрес TFTP-сервера
           next-server 10.0.0.20;
-          ###Указываем имя файла, который надо запустить с TFTP-сервера
+          #Указываем имя файла, который надо запустить с TFTP-сервера
           filename "pxelinux.0";
         }
 
