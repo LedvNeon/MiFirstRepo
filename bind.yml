@@ -1,0 +1,120 @@
+---
+- name: setings all hosts
+  become: true
+  hosts: all
+
+  tasks:
+          - name: install soft
+            yum:
+                    name:
+                            - bind
+                            - bind-utils
+                            - ntp
+                    state: latest
+                    update_cache: true
+            tags: soft
+          - name: selinux permissive
+            command: setenforce 0
+            tags: selinux
+          - name: stop firewalld
+            command: systemctl stop firewalld
+            tags: stop firewalld
+          - name: disable firewalld
+            command: systemctl disable firewalld
+            tags: disable firewalld
+          - name: stop and disable chronyd
+            service:
+                    name: chronyd
+                    state: stopped
+                    enabled: false
+            tags: chronyd
+          - name: start and eneble ntpd
+            service:
+                    name: ntpd
+                    state: started
+                    enabled: true
+            tags: ntpd
+  tags: all settings
+
+- name: ns01 settings
+  become: true
+  hosts: ns01
+
+  tasks:
+          - name: copy named.conf on ns01
+            copy:
+                    src: /home/dima/dns-bind/ns01/named.conf
+                    dest: /etc/named.conf
+            tags: copy named.conf on ns01
+          - name: copy named.dns.lab on ns01
+            copy:
+                    src: /home/dima/dns-bind/ns01/named.dns.lab
+                    dest: /etc/named/named.dns.lab
+            tags: copy named.dns.lab on ns01
+          - name: copy named.newdns.lab on ns01
+            copy:
+                    src: /home/dima/dns-bind/ns01/named.newdns.lab
+                    dest: /etc/named/named.newdns.lab
+            tags: copy named.newdns.lab on ns01
+          - name: start named on ns01
+            service:
+                    name: named
+                    state: started
+                    enabled: true
+            tags: start named on ns01
+  tags: ns01 settings
+
+- name: ns02 settings
+  become: true
+  hosts: ns02
+
+  tasks:
+          - name: copy named.conf on ns02
+            copy:
+                    src: /home/dima/dns-bind/ns02/named.conf
+                    dest: /etc/named.conf
+            tags: copy named.conf on ns02
+          - name: start named on ns02
+            service:
+                    name: named
+                    state: started
+                    enabled: true
+            tags: start named on ns02
+  tags: ns02 settings
+
+- name: split-dns on ns01
+  become: true
+  hosts: ns01
+
+  tasks:
+          - name: copy master-named.conf
+            copy:
+                    src: /home/dima/dns-bind/ns01/master-named.conf
+                    dest: /etc/named.conf
+            tags: copy master-named.conf
+          - name: copy named.dns.lab.client
+            copy:
+                    src: /home/dima/dns-bind/ns01/named.dns.lab.client
+                    dest: /etc/named/named.dns.lab.client
+            tags: copy named.dns.lab.client
+          - name: restart named on ns01
+            command: systemctl restart named
+            tags: restart named on ns01
+  tags: split-dns on ns01
+
+- name: split-dns on ns02
+  become: true
+  hosts: ns02
+
+  tasks:
+          - name: copy slave-named.conf
+            copy:
+                    src: /home/dima/dns-bind/ns02/slave-named.conf
+                    dest: /etc/named.conf
+            tags: copy slave-named.conf
+          - name: restart named on ns02
+            command: systemctl restart named
+            tags: restart named on ns02
+  tags: split-dns on ns02
+
+ 
