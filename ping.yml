@@ -1,8 +1,0 @@
----
-  - name: ping
-    hosts: all
-    become: true
-
-    tasks:
-      - name: ping
-        action: ping
