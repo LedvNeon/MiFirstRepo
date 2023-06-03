@@ -17,14 +17,14 @@ Do you want to configure integrated DNS (BIND)? [no]: no
 Хотя, возможно, я просто не дождался выполнения - хоть и ждал пол часа.
 ПЕРЕД РАЗВЁРТЫВАНИЕМ НУЖНО ПОПРВИТЬ ЭТОТ КУСОК и добавить в Play "ipa", ИНАЧЕ ДАЛЬШЕ НЕ ПОЛУЧИТСЯ ВЫПОЛНИТЬ ПОСЛЕДНИЙ TASK КЛИЕНТОВ.
 
-
 1. - name: ipa settings
 2. shell: ipa-server-install --mkhomedir --hostname=ipa.otus.lan --realm=otus.lan --domain=otus.lan --no-ntp --ds-password=Otus2023 --admin-password=Otus2023
 3. tags: ipa settings
-4.
-5. Setup complete
-6. 
-7. Next steps:
+
+# Результат ручной установки:
+Setup complete
+
+Next steps:
         1. You must make sure these network ports are open:
                 2. TCP Ports:
                   3. * 80, 443: HTTP/HTTPS
