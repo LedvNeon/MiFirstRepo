@@ -1,0 +1,4 @@
+[servers]
+master ansible_host=172.20.10.3 ansible_port=22 ansible_private_key_file="~/.vagrant/machines/master/private_key"
+slave ansible_host=172.20.10.4 ansible_port=22 ansible_private_key_file="~/.vagrant/machines/slave/private_key"
+

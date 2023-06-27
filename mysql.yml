@@ -1,0 +1,65 @@
+---
+  - name: install percona server
+    become: true
+    hosts: servers
+    tasks:
+            - name: load repo percona
+              shell: 'yum install "https://repo.percona.com/yum/percona-release-latest.noarch.rpm" -y'
+              tags: load repo percona
+
+            - name: ynstall percona
+              shell: yum install Percona-Server-server-57 -y
+              tags: ynstall percona
+
+            - name: start mysqld
+              service:
+                      name: mysqld
+                      state: started
+                      enabled: true
+              tags: start mysqld
+    tags: install percona server
+
+  - name: copy conf on master
+    hosts: master
+    become: true
+    tasks:
+            - name: copy conf
+              copy:
+                      src: "{{ item }}"
+                      dest: "/etc/my.cnf.d/"
+              with_fileglob:
+                      - "/home/vagrant/mysql/conf/*"
+    tags: copy conf on master
+
+  - name: copy damp on master
+    hosts: master
+    become: true
+    tasks:
+            - name: copy damp on master
+              copy:
+                      src: /home/vagrant/mysql/damp/bet.dmp
+                      dest: /home/vagrant/
+    tags: copy damp on master
+
+    #  - name: copy conf on slave
+    # hosts: slave
+    # become: true
+    # tasks:
+    #        - name: copy conf on slave
+    #          copy:
+    #                  src: "{{ item }}"
+    #                  dest: "/etc/my.cnf.d/"
+    #          with_fileglob:
+    #                  - "/home/vagrant/mysql/conf/*"
+    # tags: copy conf on slave
+
+  - name: restart mysqld
+    become: true
+    hosts: all
+    tasks:
+            - name: restart mysqld
+              service:
+                      name: mysqld
+                      state: restarted
+                      enabled: true
+    tags: restart mysqld
