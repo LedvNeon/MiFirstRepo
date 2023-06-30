@@ -1,0 +1,102 @@
+---
+  - name: install programs
+    become: true
+    hosts: all
+    tasks:
+            - name: install epel release on hosts
+              yum:
+                      name: epel-release
+                      state: present
+              tags: install epel release on hosts
+
+            - name: install borgbackup
+              yum:
+                      name: borgbackup
+                      state: present
+              tags: install borgbackup
+    tags: install programs on all hosts
+
+  - name: configurate backup server
+    become: true
+    hosts: backup
+    tasks:
+            - name: create disk for backup
+              parted:
+                      device: /dev/sdb
+                      number: 1
+                      state: present
+              tags: create disk for backup
+
+            - name: make fs on disk for backup
+              filesystem:
+                      fstype: ext4
+                      dev: /dev/sdb1
+              tags: make fs on disk for backup
+
+            - name: create user for backup
+              user:
+                      name: borg
+              tags: create user for backup
+
+            - name: mkdir for backup
+              file:
+                      path: /var/backup
+                      state: directory
+                      owner: borg
+                      group: borg
+                      mode: '0774'
+              tags: mkdir for backup
+
+            - name: mount disk
+              mount:
+                      path: /var/backup
+                      src: /dev/sdb1
+                      state: mounted
+                      fstype: ext4
+              tags: mount disk
+
+            - name: mkdir for ssh_keys
+              file:
+                      path: /home/borg/.ssh
+                      state: directory
+                      owner: borg
+                      group: borg
+                      mode: '0700'
+              tags: mkdir for ssh_keys
+
+            - name: touch file authorized_keys
+              file:
+                      path: /home/borg/.ssh/authorized_keys
+                      state: touch
+                      owner: borg
+                      group: borg
+                      mode: '0600'
+              tags: touch file authorized_keys
+
+    tags: configurate backup server
+
+ # - name: auto backup
+ #   hosts: client
+ #   become: true
+ #  tasks:
+ #           - name: copy borg-backup.service on client
+ #             copy:
+ #                     dest: /etc/systemd/system/borg-backup.service
+ #                     src: /home/dima/backup/borg-backup.service
+ #             tags: copy borg-backup.service on client
+
+ #           - name: copy borg-backup.timer on client
+ #             copy:
+ #                     dest: /etc/systemd/system/borg-backup.timer
+ #                     src: /home/dima/backup/borg-backup.timer
+ #             tags: copy borg-backup.timer on client
+ 
+ #           - name: start borg-backup.timer
+ #             service:
+ #                     name: borg-backup.timer
+ #                     state: started
+ #                     enabled: true
+ #             tags: start borg-backup.timer
+ #   tags: auto backup
+
+              

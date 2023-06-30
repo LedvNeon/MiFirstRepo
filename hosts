@@ -1,0 +1,5 @@
+[servers]
+backup ansible_host=172.20.10.5 ansible_port=22 ansible_private_key_file="/~vagrant/.ssh/id_rsa"
+[clients]
+client ansible_host=172.20.10.6 ansible_port=22 ansible_private_key_file="/~vagrant/.ssh/id_rsa"
+
